@@ -1,0 +1,28 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "f0dd96d3385ba1555f47c4db99352ae6"
+name = "order-send-to-minimax"
+handle = "order-send-to-minimax-2"
+application_url = "https://value-brass-ignored-holders.trycloudflare.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2025-04"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_app_proxy,read_customer_events,read_customers,read_locations,read_orders,read_products,write_app_proxy"
+
+[auth]
+redirect_urls = [
+  "https://value-brass-ignored-holders.trycloudflare.com/auth/callback",
+  "https://value-brass-ignored-holders.trycloudflare.com/auth/shopify/callback",
+  "https://value-brass-ignored-holders.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false
