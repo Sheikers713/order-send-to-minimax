@@ -17,7 +17,13 @@ export async function loader({ request }) {
   console.log(`🧪 в send-to-minimax Получен orderId из URL: ${orderId}`);
 
   try {
-    const { session } = await authenticate.admin(request);
+    const authResult = await authenticate.admin(request);
+
+if ('redirect' in authResult) {
+  return authResult.redirect; // Shopify хочет переаутентифицировать
+}
+
+const { session } = authResult;
     const shopifyOrder = await getShopifyOrder(orderId, session.shop, session.accessToken);
 
     if (!shopifyOrder) {
