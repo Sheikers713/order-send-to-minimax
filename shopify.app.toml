@@ -3,7 +3,7 @@
 client_id = "f0dd96d3385ba1555f47c4db99352ae6"
 name = "order-send-to-minimax"
 handle = "order-send-to-minimax"
-application_url = "https://victorian-je-thereby-freedom.trycloudflare.com"
+application_url = "https://order-send-to-minimax.onrender.com"
 embedded = true
 
 [build]
@@ -19,9 +19,9 @@ scopes = "read_app_proxy,read_customer_events,read_customers,read_locations,read
 
 [auth]
 redirect_urls = [
-  "https://victorian-je-thereby-freedom.trycloudflare.com/auth/callback",
-  "https://victorian-je-thereby-freedom.trycloudflare.com/auth/shopify/callback",
-  "https://victorian-je-thereby-freedom.trycloudflare.com/api/auth/callback"
+  "https://order-send-to-minimax.onrender.com/auth/callback",
+  "https://order-send-to-minimax.onrender.com/auth/shopify/callback",
+  "https://order-send-to-minimax.onrender.com/api/auth/callback"
 ]
 
 [pos]
