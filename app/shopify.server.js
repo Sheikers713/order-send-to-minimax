@@ -1,4 +1,3 @@
-// app/shopify.server.js
 import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
@@ -20,9 +19,7 @@ function getRedisClient() {
       console.error("❌ Redis client error:", err)
     );
 
-    redisClient.connect().then(() => {
-      console.log("✅ Redis connected");
-    });
+    // ❌ НЕЛЬЗЯ вызывать redisClient.connect() вручную!
   }
 
   return redisClient;
@@ -42,7 +39,7 @@ export async function initShopify() {
     const redis = getRedisClient();
     sessionStorage = new RedisSessionStorage(redis);
 
-    await sessionStorage.init();
+    await sessionStorage.init(); // внутри сам вызовет connect()
 
     shopify = shopifyApp({
       apiKey: process.env.SHOPIFY_API_KEY,
