@@ -9,9 +9,9 @@ let shopify;
 let initPromise;
 
 /**
- * Create a Redis client configuration
+ * Create and initialize Redis client
  */
-function getRedisClient() {
+async function getRedisClient() {
   if (!redisClient) {
     const redisUrl = process.env.REDIS_URL;
     if (!redisUrl) {
@@ -21,7 +21,7 @@ function getRedisClient() {
     console.log("🔌 Creating Redis client with URL:", redisUrl);
     
     redisClient = new Redis(redisUrl, {
-      lazyConnect: true, // Let Shopify session storage manage the connection
+      lazyConnect: false,
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
         return delay;
@@ -30,7 +30,7 @@ function getRedisClient() {
       enableReadyCheck: true,
       connectTimeout: 10000,
       tls: {
-        rejectUnauthorized: false // Required for Upstash Redis
+        rejectUnauthorized: false
       }
     });
 
@@ -39,6 +39,23 @@ function getRedisClient() {
     redisClient.on("connect", () => console.log("🔌 [Redis] connected"));
     redisClient.on("reconnecting", () => console.log("🔄 [Redis] reconnecting"));
     redisClient.on("close", () => console.log("🔌 [Redis] connection closed"));
+
+    // Wait for the connection to be ready
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Redis connection timeout"));
+      }, 10000);
+
+      redisClient.once("ready", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+
+      redisClient.once("error", (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
   }
   return redisClient;
 }
@@ -51,7 +68,7 @@ export async function initShopify() {
 
   initPromise = (async () => {
     try {
-      const client = getRedisClient();
+      const client = await getRedisClient();
       console.log("🔌 Initializing Redis session storage...");
       
       const sessionStorage = new RedisSessionStorage(client);
