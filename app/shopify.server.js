@@ -21,7 +21,11 @@ export async function initShopify() {
     console.log("🔌 Using Redis URL:", redisUrl);
 
     // ✅ Let Shopify handle Redis client creation
-    const sessionStorage = new RedisSessionStorage(new URL(redisUrl));
+    const sessionStorage = new RedisSessionStorage(new URL(redisUrl), {
+      tls: {
+        rejectUnauthorized: false // Only if you're using a self-signed certificate
+      }
+    });
     await sessionStorage.init();
 
     const scopes = (process.env.SCOPES || "").split(",");
