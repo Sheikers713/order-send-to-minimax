@@ -30,7 +30,8 @@ export async function initShopify() {
   console.log("🔁 Initializing Shopify and Redis");
 
   initPromise = (async () => {
-    sessionStorage = new RedisSessionStorage(getRedisClient());
+    const redis = getRedisClient(); // no .connect()!
+    sessionStorage = new RedisSessionStorage(redis);
 
     await sessionStorage.init();
 
