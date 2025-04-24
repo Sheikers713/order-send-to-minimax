@@ -1,18 +1,12 @@
-const Redis = require("ioredis");
+// app/lib/redis.js
+import Redis from "ioredis";
 
-let redisClient = null;
+let redisClient;
 
-function getRedisClient() {
+export function getRedisClient() {
   if (!redisClient) {
-    if (!process.env.REDIS_URL) {
-      throw new Error("❌ REDIS_URL is not defined in environment variables.");
-    }
-
+    console.log("🧠 [Redis] Creating new Redis client...");
     redisClient = new Redis(process.env.REDIS_URL);
-    console.log("✅ [redis] Client initialized");
   }
-
   return redisClient;
 }
-
-module.exports = { getRedisClient };
