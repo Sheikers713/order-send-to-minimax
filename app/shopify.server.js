@@ -12,7 +12,8 @@ let shopifyInstance;
 export async function getShopify() {
   if (shopifyInstance) return shopifyInstance;
 
-  const sessionStorage = await RedisSessionStorage.build(process.env.REDIS_URL);
+  const sessionStorage = new RedisSessionStorage(process.env.REDIS_URL);
+  await sessionStorage.init(); // 🔑 Важно!
 
   const shopify = shopifyApp({
     apiKey: process.env.SHOPIFY_API_KEY,
@@ -36,7 +37,7 @@ export async function getShopify() {
   return shopify;
 }
 
-// 👇 Обёртки на экспорт
+// 👇 Проксируем методы
 export const apiVersion = ApiVersion.January25;
 export const addDocumentResponseHeaders = async (...args) =>
   (await getShopify()).addDocumentResponseHeaders(...args);
