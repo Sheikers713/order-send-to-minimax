@@ -2,7 +2,7 @@
 import "@shopify/shopify-app-remix/adapters/node";
 import { shopifyApp, ApiVersion, AppDistribution } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import Redis from 'redis';
+import { createClient } from 'redis';
 
 let shopify;
 let initPromise;
@@ -22,10 +22,11 @@ export async function initShopify() {
     console.log("🔌 Using Redis URL:", redisUrl);
 
     try {
-      // First, test the Redis connection directly
-      const redisClient = Redis.createClient({
+      // Create Redis client
+      const redisClient = createClient({
         url: redisUrl,
-        tls: {
+        socket: {
+          tls: true,
           rejectUnauthorized: false
         }
       });
@@ -33,39 +34,20 @@ export async function initShopify() {
       redisClient.on('error', (err) => console.error('Redis Client Error', err));
       redisClient.on('connect', () => console.log('Redis Client Connected'));
       
-      await new Promise((resolve, reject) => {
-        redisClient.connect((err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
+      // Connect to Redis
+      await redisClient.connect();
+      await redisClient.ping();
+      console.log("✅ Redis connection test successful");
 
-      await new Promise((resolve, reject) => {
-        redisClient.ping((err, result) => {
-          if (err) reject(err);
-          else {
-            console.log("✅ Redis connection test successful");
-            resolve();
-          }
-        });
-      });
-
-      // Now create the session storage
-      const sessionStorage = new RedisSessionStorage({
-        url: redisUrl,
-        tls: {
-          rejectUnauthorized: false
-        }
-      });
+      // Create session storage with the Redis client
+      const sessionStorage = new RedisSessionStorage(redisClient);
       
       console.log("🔌 Initializing Redis session storage...");
       await sessionStorage.init();
       console.log("✅ Redis session storage initialized successfully");
 
-      // Close the test client
-      await new Promise((resolve) => {
-        redisClient.quit(() => resolve());
-      });
+      // Note: We don't quit the client as per the documentation
+      // The session storage needs the connection to remain open
     } catch (error) {
       console.error("❌ Failed to initialize Redis:", error);
       throw error;
