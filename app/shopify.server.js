@@ -5,6 +5,7 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 
+import Redis from "ioredis";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
 
 let shopifyInstance;
@@ -12,8 +13,10 @@ let shopifyInstance;
 export async function getShopify() {
   if (shopifyInstance) return shopifyInstance;
 
-  const sessionStorage = new RedisSessionStorage(process.env.REDIS_URL);
-  await sessionStorage.init(); // 🔑 Важно!
+  // 🔧 создаём Redis-клиент правильно
+  const redisClient = new Redis(process.env.REDIS_URL);
+  const sessionStorage = new RedisSessionStorage(redisClient);
+  await sessionStorage.init(); // 👈 обязательно
 
   const shopify = shopifyApp({
     apiKey: process.env.SHOPIFY_API_KEY,
@@ -37,7 +40,6 @@ export async function getShopify() {
   return shopify;
 }
 
-// 👇 Проксируем методы
 export const apiVersion = ApiVersion.January25;
 export const addDocumentResponseHeaders = async (...args) =>
   (await getShopify()).addDocumentResponseHeaders(...args);
