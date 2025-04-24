@@ -11,17 +11,12 @@ let redisClient;
 
 function getRedisClient() {
   if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL,
-    });
-
+    redisClient = createClient({ url: process.env.REDIS_URL });
     redisClient.on("error", (err) =>
       console.error("❌ Redis client error:", err)
     );
-
-    // ❌ НЕЛЬЗЯ вызывать redisClient.connect() вручную!
+    // ❌ НЕ вызывай redisClient.connect() вручную!
   }
-
   return redisClient;
 }
 
@@ -36,10 +31,9 @@ export async function initShopify() {
   console.log("🔁 Initializing Shopify and Redis");
 
   initPromise = (async () => {
-    const redis = getRedisClient();
-    sessionStorage = new RedisSessionStorage(redis);
+    sessionStorage = new RedisSessionStorage(getRedisClient());
 
-    await sessionStorage.init(); // внутри сам вызовет connect()
+    await sessionStorage.init();
 
     shopify = shopifyApp({
       apiKey: process.env.SHOPIFY_API_KEY,
@@ -59,7 +53,6 @@ export async function initShopify() {
         : {}),
     });
 
-    console.log("✅ Shopify initialized");
     return shopify;
   })();
 
