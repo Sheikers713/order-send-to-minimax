@@ -51,11 +51,34 @@ export async function initShopify() {
   return initPromise;
 }
 
+// Export the Shopify instance
 export const getShopify = initShopify;
+
+// Export authentication functions
+export async function authenticate(request) {
+  const shopifyInstance = await initShopify();
+  return shopifyInstance.authenticate(request);
+}
+
+export async function unauthenticated(request) {
+  const shopifyInstance = await initShopify();
+  return shopifyInstance.unauthenticated(request);
+}
+
+export async function login(request) {
+  const shopifyInstance = await initShopify();
+  return shopifyInstance.login(request);
+}
+
+export async function registerWebhooks(request) {
+  const shopifyInstance = await initShopify();
+  return shopifyInstance.registerWebhooks(request);
+}
+
+export async function sessionStorageInstance() {
+  const shopifyInstance = await initShopify();
+  return shopifyInstance.sessionStorage;
+}
+
 export const apiVersion = ApiVersion.January25;
 export const addDocumentResponseHeaders = async (...args) => (await initShopify()).addDocumentResponseHeaders(...args);
-export const authenticate = async (...args) => (await initShopify()).authenticate(...args);
-export const unauthenticated = async (...args) => (await initShopify()).unauthenticated(...args);
-export const login = async (...args) => (await initShopify()).login(...args);
-export const registerWebhooks = async (...args) => (await initShopify()).registerWebhooks(...args);
-export const sessionStorageInstance = async () => (await initShopify()).sessionStorage;
