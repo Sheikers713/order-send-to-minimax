@@ -5,17 +5,16 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { createClient } from "redis";
+import Redis from "ioredis";
 
 let redisClient;
 
 function getRedisClient() {
   if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient = new Redis(process.env.REDIS_URL);
     redisClient.on("error", (err) =>
       console.error("❌ Redis client error:", err)
     );
-    // ❌ НЕ вызывай redisClient.connect() вручную!
   }
   return redisClient;
 }
