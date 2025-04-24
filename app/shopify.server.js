@@ -22,7 +22,7 @@ export async function initShopify() {
 
       const scopes = (process.env.SCOPES || "").split(",");
 
-      shopify = shopifyApp({
+      const app = shopifyApp({
         apiKey: process.env.SHOPIFY_API_KEY || "",
         apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
         apiVersion: ApiVersion.January25,
@@ -41,7 +41,7 @@ export async function initShopify() {
       });
 
       console.log("✅ Shopify initialized");
-      return shopify;
+      return app;
     } catch (error) {
       console.error("❌ Failed to initialize Prisma:", error);
       throw error;
@@ -56,29 +56,33 @@ export const getShopify = initShopify;
 
 // Export authentication functions
 export async function authenticate(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.authenticate(request);
+  const app = await initShopify();
+  return app.authenticate(request);
 }
 
 export async function unauthenticated(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.unauthenticated(request);
+  const app = await initShopify();
+  return app.unauthenticated(request);
 }
 
 export async function login(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.login(request);
+  const app = await initShopify();
+  return app.login(request);
 }
 
 export async function registerWebhooks(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.registerWebhooks(request);
+  const app = await initShopify();
+  return app.registerWebhooks(request);
 }
 
 export async function sessionStorageInstance() {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.sessionStorage;
+  const app = await initShopify();
+  return app.sessionStorage;
 }
 
 export const apiVersion = ApiVersion.January25;
-export const addDocumentResponseHeaders = async (...args) => (await initShopify()).addDocumentResponseHeaders(...args);
+
+export async function addDocumentResponseHeaders(request) {
+  const app = await initShopify();
+  return app.addDocumentResponseHeaders(request);
+}
