@@ -1,24 +1,15 @@
 // app/lib/redis.js
-import { createClient } from "redis";
+import Redis from "ioredis";
 
 let redisClient;
 
 export function getRedisClient() {
   if (!redisClient) {
     console.log("🧠 [Redis] Creating Redis client...");
-    redisClient = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        tls: true,
-      },
-    });
+    redisClient = new Redis(process.env.REDIS_URL);
 
     redisClient.on("ready", () => console.log("✅ [Redis] Connected and ready"));
     redisClient.on("error", (err) => console.error("❌ [Redis] Connection error", err));
-
-    redisClient.connect().catch((err) => {
-      console.error("❌ [Redis] Initial connection error", err);
-    });
   } else {
     console.log("♻️ [Redis] Reusing existing client...");
   }
