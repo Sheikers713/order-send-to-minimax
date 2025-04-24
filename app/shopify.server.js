@@ -9,28 +9,23 @@ import Redis from "ioredis";
 
 let redisClient;
 
-function getRedisClient() { 
-	closeRedisConnection();
+function getRedisClient() {
+  // Проверяем, если Redis уже подключен, не подключаем снова
   if (!redisClient) {
     redisClient = new Redis(process.env.REDIS_URL);
+    
     redisClient.on("error", (err) =>
       console.error("❌ Redis client error:", err)
     );
-  }
-  return redisClient;
-}
 
-// Закрытие Redis-соединения
-function closeRedisConnection() {
-  if (redisClient) {
-    redisClient.quit()
-      .then(() => {
-        console.log("✅ Redis connection closed successfully.");
-      })
-      .catch((err) => {
-        console.error("❌ Error closing Redis connection:", err);
-      });
+    redisClient.on("ready", () => {
+      console.log("✅ Redis connected");
+    });
+  } else if (redisClient.status === "ready") {
+    console.log("♻️ Redis is already connected.");
   }
+
+  return redisClient;
 }
 
 let shopify;
@@ -94,16 +89,3 @@ export const registerWebhooks = async (...args) =>
 
 export const sessionStorageInstance = async () =>
   (await initShopify()).sessionStorage;
-
-// Обработчик для остановки приложения и закрытия соединения Redis
-process.on("SIGTERM", () => {
-  console.log("🔴 SIGTERM received, shutting down...");
-  closeRedisConnection();
-  process.exit(0); // Завершаем процесс
-});
-
-process.on("SIGINT", () => {
-  console.log("🔴 SIGINT received, shutting down...");
-  closeRedisConnection();
-  process.exit(0); // Завершаем процесс
-});
