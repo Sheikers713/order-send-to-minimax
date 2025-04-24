@@ -3,29 +3,31 @@ import axios from 'axios';
 
 const API_VERSION = '2024-04';
 
-// 🔁 Получение заказа по ID
 export async function getShopifyOrder(orderId, shop, accessToken) {
-  console.log(`📦в getShopifyOrder Получаем заказ из Shopify (ID: ${orderId})...`);
-  console.log(`🔐 Магазин: ${shop}`);
-  
   const url = `https://${shop}/admin/api/${API_VERSION}/orders/${orderId}.json`;
+
+  console.log("📦 [getShopifyOrder] Fetching order from Shopify...");
+  console.log("🛍️ [getShopifyOrder] Shop:", shop);
+  console.log("📦 [getShopifyOrder] Order ID:", orderId);
+  console.log("🔑 [getShopifyOrder] Token begins with:", accessToken?.slice(0, 10) + "...");
 
   try {
     const response = await axios.get(url, {
       headers: {
-        'X-Shopify-Access-Token': accessToken
-      }
+        'X-Shopify-Access-Token': accessToken, // ✅ MUST BE EXACTLY THIS
+      },
     });
 
-    console.log('✅ в getShopifyOrder Заказ получен!');
+    console.log("✅ [getShopifyOrder] Order fetched successfully");
     return response.data.order;
+
   } catch (error) {
-    console.error('❌ в getShopifyOrder Ошибка при получении заказа из Shopify.');
+    console.error("❌ [getShopifyOrder] Failed to fetch order from Shopify.");
     if (error.response) {
-      console.error('📨 Статус:', error.response.status);
-      console.error('📄 Ответ:', error.response.data);
+      console.error("📨 Status:", error.response.status);
+      console.error("📄 Response:", JSON.stringify(error.response.data, null, 2));
     } else {
-      console.error('⚠️ Ошибка:', error.message);
+      console.error("⚠️ Error:", error.message);
     }
     return null;
   }
