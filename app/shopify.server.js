@@ -17,6 +17,15 @@ function createRedisClientWithIsReady(options) {
       return this.isOpen;
     }
   });
+
+  // Add connect method if it doesn't exist
+  if (!client.connect) {
+    client.connect = async function() {
+      if (!this.isOpen) {
+        await this.connect();
+      }
+    };
+  }
   
   return client;
 }
@@ -48,11 +57,8 @@ export async function initShopify() {
       redisClient.on('error', (err) => console.error('Redis Client Error', err));
       redisClient.on('connect', () => console.log('Redis Client Connected'));
       
-      // Connect to Redis using the correct method
-      if (typeof redisClient.connect === 'function') {
-        await redisClient.connect();
-      } else {
-        // Try alternative connection method
+      // Connect to Redis
+      if (!redisClient.isOpen) {
         await redisClient.connect();
       }
       
