@@ -16,11 +16,23 @@ let redisClient;
  */
 function getRedisClient() {
   if (!redisClient) {
+    if (!process.env.REDIS_URL) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+    
     redisClient = new Redis(process.env.REDIS_URL, {
       lazyConnect: true,
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      maxRetriesPerRequest: 3,
     });
+
     redisClient.on("ready", () => console.log("✅ [Redis] ready"));
     redisClient.on("error", (err) => console.error("❌ [Redis]", err));
+    redisClient.on("connect", () => console.log("🔌 [Redis] connected"));
+    redisClient.on("reconnecting", () => console.log("🔄 [Redis] reconnecting"));
   }
   return redisClient;
 }
