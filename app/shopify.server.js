@@ -6,62 +6,39 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { createClient } from "redis";
 
-let redisClient;
 let shopify;
 let initPromise;
-
-/**
- * Create (but don’t yet connect) a node-redis client
- * so that RedisSessionStorage can call .connect() for us.
- */
-function getRedisClient() {
-  if (!redisClient) {
-    if (!process.env.REDIS_URL) {
-      throw new Error("REDIS_URL environment variable is not set");
-    }
-    console.log("🔌 Creating node-redis client with URL:", process.env.REDIS_URL);
-
-    redisClient = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        connectTimeout: 10000,
-      },
-    });
-
-    redisClient.on("ready",    () => console.log("✅ [Redis] ready"));
-    redisClient.on("connect",  () => console.log("🔌 [Redis] connected"));
-    redisClient.on("error",    (err) => console.error("❌ [Redis]", err));
-    redisClient.on("reconnecting", () => console.log("🔄 [Redis] reconnecting"));
-    redisClient.on("end",      () => console.log("🔌 [Redis] connection closed"));
-  }
-  return redisClient;
-}
 
 export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
-  console.log("🔁 Initializing Shopify & Redis…");
-  initPromise = (async () => {
-    const client = getRedisClient();
+  console.log("🔁 Initializing Shopify & Redis session storage…");
 
-    const sessionStorage = new RedisSessionStorage(client);
+  initPromise = (async () => {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+    console.log("🔌 Using Redis URL:", redisUrl);
+
+    // Let the Shopify adapter create its own node-redis client under the hood
+    const sessionStorage = new RedisSessionStorage(redisUrl);
     await sessionStorage.init();
     console.log("✅ Redis session storage initialized");
 
     const scopes = (process.env.SCOPES || "").split(",");
 
     shopify = shopifyApp({
-      apiKey:       process.env.SHOPIFY_API_KEY || "",
-      apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-      apiVersion:   ApiVersion.January25,
+      apiKey:         process.env.SHOPIFY_API_KEY || "",
+      apiSecretKey:   process.env.SHOPIFY_API_SECRET || "",
+      apiVersion:     ApiVersion.January25,
       scopes,
-      appUrl:       process.env.SHOPIFY_APP_URL || "",
+      appUrl:         process.env.SHOPIFY_APP_URL || "",
       authPathPrefix: "/auth",
       sessionStorage,
-      distribution:  AppDistribution.AppStore,
+      distribution:   AppDistribution.AppStore,
       future: {
         unstable_newEmbeddedAuthStrategy: true,
         removeRest: true,
