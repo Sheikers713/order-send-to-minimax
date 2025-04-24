@@ -7,9 +7,10 @@ import { createClient } from 'redis';
 let shopify;
 let initPromise;
 
-// Create a wrapper that adds the missing isReady property
+// Create a wrapper that adds the missing isReady property and correct method names
 function createRedisClientWithIsReady(options) {
   const client = createClient(options);
+  const originalConnect = client.connect;
   
   // Add isReady property
   Object.defineProperty(client, 'isReady', {
@@ -17,6 +18,11 @@ function createRedisClientWithIsReady(options) {
       return this.isOpen;
     }
   });
+
+  // Wrap the connect method
+  client.connect = async function() {
+    await originalConnect.call(this);
+  };
   
   return client;
 }
