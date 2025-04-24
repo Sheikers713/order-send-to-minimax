@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "remix vite:build",
-    "start": "remix-serve ./build/server/index.js",
+    "start": "remix-serve ./build/server/index.js --port $PORT --hostname 0.0.0.0",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
