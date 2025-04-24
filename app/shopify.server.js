@@ -23,8 +23,9 @@ export async function initShopify() {
     }
     console.log("🔌 Using Redis URL:", redisUrl);
 
-    // Let the Shopify adapter create its own node-redis client under the hood
-    const sessionStorage = new RedisSessionStorage(redisUrl);
+    // Use a URL object to ensure the adapter creates a node-redis client properly
+    const redisConnectionUrl = new URL(redisUrl);
+    const sessionStorage = new RedisSessionStorage(redisConnectionUrl);
     await sessionStorage.init();
     console.log("✅ Redis session storage initialized");
 
