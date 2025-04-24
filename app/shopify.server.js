@@ -19,33 +19,33 @@ export async function initShopify() {
       
       console.log("🔌 Initializing Prisma session storage...");
       console.log("✅ Prisma session storage initialized successfully");
+
+      const scopes = (process.env.SCOPES || "").split(",");
+
+      shopify = shopifyApp({
+        apiKey: process.env.SHOPIFY_API_KEY || "",
+        apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
+        apiVersion: ApiVersion.January25,
+        scopes,
+        appUrl: process.env.SHOPIFY_APP_URL || "",
+        authPathPrefix: "/auth",
+        sessionStorage,
+        distribution: AppDistribution.AppStore,
+        future: {
+          unstable_newEmbeddedAuthStrategy: true,
+          removeRest: true,
+        },
+        ...(process.env.SHOP_CUSTOM_DOMAIN
+          ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
+          : {}),
+      });
+
+      console.log("✅ Shopify initialized");
+      return shopify;
     } catch (error) {
       console.error("❌ Failed to initialize Prisma:", error);
       throw error;
     }
-
-    const scopes = (process.env.SCOPES || "").split(",");
-
-    shopify = shopifyApp({
-      apiKey: process.env.SHOPIFY_API_KEY || "",
-      apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-      apiVersion: ApiVersion.January25,
-      scopes,
-      appUrl: process.env.SHOPIFY_APP_URL || "",
-      authPathPrefix: "/auth",
-      sessionStorage,
-      distribution: AppDistribution.AppStore,
-      future: {
-        unstable_newEmbeddedAuthStrategy: true,
-        removeRest: true,
-      },
-      ...(process.env.SHOP_CUSTOM_DOMAIN
-        ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
-        : {}),
-    });
-
-    console.log("✅ Shopify initialized");
-    return shopify;
   })();
 
   return initPromise;
