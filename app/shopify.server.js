@@ -11,39 +11,46 @@ import { getRedisClient } from "./lib/redis.js";
 
 let shopify;
 let sessionStorage;
+let initPromise;
 
-async function initShopify() {
+export async function initShopify() {
   if (shopify) return shopify;
+  if (initPromise) return initPromise;
 
   console.log("🔁 [shopify] Initializing Redis and Shopify instance...");
-  const redisClient = getRedisClient();
 
-  if (!sessionStorage) {
-    sessionStorage = new RedisSessionStorage(redisClient);
-    await sessionStorage.init();
-    console.log("✅ [Redis] Session storage initialized");
-  }
+  initPromise = (async () => {
+    const redisClient = getRedisClient();
 
-  shopify = shopifyApp({
-    apiKey: process.env.SHOPIFY_API_KEY,
-    apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-    apiVersion: ApiVersion.January25,
-    scopes: process.env.SCOPES?.split(","),
-    appUrl: process.env.SHOPIFY_APP_URL || "",
-    authPathPrefix: "/auth",
-    sessionStorage,
-    distribution: AppDistribution.AppStore,
-    future: {
-      unstable_newEmbeddedAuthStrategy: true,
-      removeRest: true,
-    },
-    ...(process.env.SHOP_CUSTOM_DOMAIN
-      ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
-      : {}),
-  });
+    if (!sessionStorage) {
+      sessionStorage = new RedisSessionStorage(redisClient);
+      await sessionStorage.init();
+      console.log("✅ [Redis] Session storage initialized");
+    }
 
-  console.log("✅ [shopify] Initialized");
-  return shopify;
+    shopify = shopifyApp({
+      apiKey: process.env.SHOPIFY_API_KEY,
+      apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
+      apiVersion: ApiVersion.January25,
+      scopes: process.env.SCOPES?.split(","),
+      appUrl: process.env.SHOPIFY_APP_URL || "",
+      authPathPrefix: "/auth",
+      sessionStorage,
+      distribution: AppDistribution.AppStore,
+      future: {
+        unstable_newEmbeddedAuthStrategy: true,
+        removeRest: true,
+      },
+      ...(process.env.SHOP_CUSTOM_DOMAIN
+        ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
+        : {}),
+    });
+
+    console.log("✅ [shopify] Initialized");
+    return shopify;
+  })();
+
+  return initPromise;
 }
 
 export const getShopify = initShopify;

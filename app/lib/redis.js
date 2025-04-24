@@ -8,8 +8,7 @@ export function getRedisClient() {
     console.log("🧠 [Redis] Creating new Redis client...");
     redisClient = new Redis(process.env.REDIS_URL);
   } else {
-    console.log("♻️ [Redis] Reusing existing client");
+    console.log("♻️ [Redis] Reusing existing Redis client...");
   }
-
   return redisClient;
 }
