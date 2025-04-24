@@ -6,64 +6,62 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import Redis from "ioredis";
+import { createClient } from "redis";
 
 let redisClient;
+let shopify;
+let initPromise;
 
 /**
- * Create a lazy-connect ioredis client so that
- * .connect() is only invoked by RedisSessionStorage.
+ * Create (but don’t yet connect) a node-redis client
+ * so that RedisSessionStorage can call .connect() for us.
  */
 function getRedisClient() {
   if (!redisClient) {
     if (!process.env.REDIS_URL) {
       throw new Error("REDIS_URL environment variable is not set");
     }
-    
-    redisClient = new Redis(process.env.REDIS_URL, {
-      lazyConnect: true,
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
+    console.log("🔌 Creating node-redis client with URL:", process.env.REDIS_URL);
+
+    redisClient = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        connectTimeout: 10000,
       },
-      maxRetriesPerRequest: 3,
     });
 
-    redisClient.on("ready", () => console.log("✅ [Redis] ready"));
-    redisClient.on("error", (err) => console.error("❌ [Redis]", err));
-    redisClient.on("connect", () => console.log("🔌 [Redis] connected"));
+    redisClient.on("ready",    () => console.log("✅ [Redis] ready"));
+    redisClient.on("connect",  () => console.log("🔌 [Redis] connected"));
+    redisClient.on("error",    (err) => console.error("❌ [Redis]", err));
     redisClient.on("reconnecting", () => console.log("🔄 [Redis] reconnecting"));
+    redisClient.on("end",      () => console.log("🔌 [Redis] connection closed"));
   }
   return redisClient;
 }
-
-let shopify;
-let sessionStorage;
-let initPromise;
 
 export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
   console.log("🔁 Initializing Shopify & Redis…");
-
   initPromise = (async () => {
     const client = getRedisClient();
-    sessionStorage = new RedisSessionStorage(client);
 
+    const sessionStorage = new RedisSessionStorage(client);
     await sessionStorage.init();
+    console.log("✅ Redis session storage initialized");
 
     const scopes = (process.env.SCOPES || "").split(",");
 
     shopify = shopifyApp({
-      apiKey: process.env.SHOPIFY_API_KEY,
+      apiKey:       process.env.SHOPIFY_API_KEY || "",
       apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-      apiVersion: ApiVersion.January25,
+      apiVersion:   ApiVersion.January25,
       scopes,
-      appUrl: process.env.SHOPIFY_APP_URL || "",
+      appUrl:       process.env.SHOPIFY_APP_URL || "",
       authPathPrefix: "/auth",
       sessionStorage,
-      distribution: AppDistribution.AppStore,
+      distribution:  AppDistribution.AppStore,
       future: {
         unstable_newEmbeddedAuthStrategy: true,
         removeRest: true,
@@ -80,23 +78,17 @@ export async function initShopify() {
   return initPromise;
 }
 
-export const getShopify = initShopify;
-export const apiVersion = ApiVersion.January25;
-
+export const getShopify               = initShopify;
+export const apiVersion               = ApiVersion.January25;
 export const addDocumentResponseHeaders = async (...args) =>
   (await initShopify()).addDocumentResponseHeaders(...args);
-
-export const authenticate = async (...args) =>
+export const authenticate             = async (...args) =>
   (await initShopify()).authenticate(...args);
-
-export const unauthenticated = async (...args) =>
+export const unauthenticated          = async (...args) =>
   (await initShopify()).unauthenticated(...args);
-
-export const login = async (...args) =>
+export const login                    = async (...args) =>
   (await initShopify()).login(...args);
-
-export const registerWebhooks = async (...args) =>
+export const registerWebhooks         = async (...args) =>
   (await initShopify()).registerWebhooks(...args);
-
-export const sessionStorageInstance = async () =>
+export const sessionStorageInstance   = async () =>
   (await initShopify()).sessionStorage;
