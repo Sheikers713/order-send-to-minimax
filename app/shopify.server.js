@@ -1,4 +1,3 @@
-// app/shopify.server.js
 import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
@@ -16,14 +15,13 @@ export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
-  console.log("🔂 [Shopify] initShopify called 1 time(s)");
+  console.log("🔂 [Shopify] initShopify called");
   console.log("🔁 [shopify] Initializing Redis and Shopify instance...");
 
   initPromise = (async () => {
-sessionStorage = new RedisSessionStorage(() => {
-  console.trace("🔍 Redis client requested from:");
-  return getRedisClient(); // просто вернуть Redis client, а не Promise
-});
+    const redis = getRedisClient();
+
+    sessionStorage = new RedisSessionStorage(redis);
     await sessionStorage.init();
 
     shopify = shopifyApp({
@@ -55,18 +53,13 @@ export const apiVersion = ApiVersion.January25;
 
 export const addDocumentResponseHeaders = async (...args) =>
   (await initShopify()).addDocumentResponseHeaders(...args);
-
 export const authenticate = async (...args) =>
   (await initShopify()).authenticate(...args);
-
 export const unauthenticated = async (...args) =>
   (await initShopify()).unauthenticated(...args);
-
 export const login = async (...args) =>
   (await initShopify()).login(...args);
-
 export const registerWebhooks = async (...args) =>
   (await initShopify()).registerWebhooks(...args);
-
 export const sessionStorageInstance = async () =>
   (await initShopify()).sessionStorage;
