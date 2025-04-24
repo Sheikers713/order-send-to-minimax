@@ -20,13 +20,26 @@ export async function initShopify() {
 
     console.log("🔌 Using Redis URL:", redisUrl);
 
-    // ✅ Let Shopify handle Redis client creation
-    const sessionStorage = new RedisSessionStorage(new URL(redisUrl), {
-      tls: {
-        rejectUnauthorized: false // Only if you're using a self-signed certificate
-      }
-    });
-    await sessionStorage.init();
+    try {
+      // ✅ Let Shopify handle Redis client creation
+      const sessionStorage = new RedisSessionStorage(new URL(redisUrl), {
+        tls: {
+          rejectUnauthorized: false
+        },
+        retryStrategy: (times) => {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        },
+        maxRetriesPerRequest: 3
+      });
+      
+      console.log("🔌 Initializing Redis session storage...");
+      await sessionStorage.init();
+      console.log("✅ Redis session storage initialized successfully");
+    } catch (error) {
+      console.error("❌ Failed to initialize Redis session storage:", error);
+      throw error;
+    }
 
     const scopes = (process.env.SCOPES || "").split(",");
 
