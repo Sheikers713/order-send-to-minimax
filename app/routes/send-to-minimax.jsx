@@ -19,7 +19,7 @@ export async function loader({ request }) {
   console.log(`🧪 [send-to-minimax] Received orderId from URL: ${orderId}`);
 
   try {
-    const { session } = await authenticate.admin(request);
+const { session } = await authenticate.admin(request);
     console.log("🔐 [auth] Authenticated session:");
     console.log("🧾 [session] Full object:", JSON.stringify(session, null, 2));
 

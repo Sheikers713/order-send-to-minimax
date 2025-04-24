@@ -7,7 +7,7 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { getRedisClient } from "./lib/redis";
+import { getRedisClient } from "./lib/redis.js";
 
 let shopify;
 let sessionStorage;
@@ -48,15 +48,21 @@ async function initShopify() {
 
 export const getShopify = initShopify;
 export const apiVersion = ApiVersion.January25;
+
 export const addDocumentResponseHeaders = async (...args) =>
   (await initShopify()).addDocumentResponseHeaders(...args);
+
 export const authenticate = async (...args) =>
   (await initShopify()).authenticate(...args);
+
 export const unauthenticated = async (...args) =>
   (await initShopify()).unauthenticated(...args);
+
 export const login = async (...args) =>
   (await initShopify()).login(...args);
+
 export const registerWebhooks = async (...args) =>
   (await initShopify()).registerWebhooks(...args);
+
 export const sessionStorageInstance = async () =>
   (await initShopify()).sessionStorage;
