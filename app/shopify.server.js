@@ -7,29 +7,6 @@ import { createClient } from 'redis';
 let shopify;
 let initPromise;
 
-// Create a wrapper that adds the missing isReady property
-function createRedisClientWithIsReady(options) {
-  const client = createClient(options);
-  
-  // Add isReady property
-  Object.defineProperty(client, 'isReady', {
-    get: function() {
-      return this.isOpen;
-    }
-  });
-
-  // Add connect method if it doesn't exist
-  if (!client.connect) {
-    client.connect = async function() {
-      if (!this.isOpen) {
-        await this.connect();
-      }
-    };
-  }
-  
-  return client;
-}
-
 export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
@@ -45,8 +22,8 @@ export async function initShopify() {
     console.log("🔌 Using Redis URL:", redisUrl);
 
     try {
-      // Create Redis client with isReady property
-      const redisClient = createRedisClientWithIsReady({
+      // Create Redis client
+      const redisClient = createClient({
         url: redisUrl,
         socket: {
           tls: true,
@@ -58,15 +35,13 @@ export async function initShopify() {
       redisClient.on('connect', () => console.log('Redis Client Connected'));
       
       // Connect to Redis
-      if (!redisClient.isOpen) {
-        await redisClient.connect();
-      }
+      await redisClient.connect();
       
       // Test the connection
       const pong = await redisClient.ping();
       console.log("✅ Redis connection test successful:", pong);
 
-      // Create session storage with the wrapped Redis client
+      // Create session storage with the Redis client
       const sessionStorage = new RedisSessionStorage(redisClient);
       
       console.log("🔌 Initializing Redis session storage...");
