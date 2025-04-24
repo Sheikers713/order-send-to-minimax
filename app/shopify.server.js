@@ -1,8 +1,7 @@
 // app/shopify.server.js
 import "@shopify/shopify-app-remix/adapters/node";
 import { shopifyApp, ApiVersion, AppDistribution } from "@shopify/shopify-app-remix/server";
-import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { createClient } from 'redis';
+import { PrismaSessionStorage } from "./session.server";
 
 let shopify;
 let initPromise;
@@ -11,44 +10,17 @@ export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
-  console.log("🔁 Initializing Shopify & Redis session storage…");
+  console.log("🔁 Initializing Shopify & Prisma session storage…");
 
   initPromise = (async () => {
-    const redisUrl = process.env.REDIS_URL;
-    if (!redisUrl) {
-      throw new Error("REDIS_URL environment variable is not set");
-    }
-
-    console.log("🔌 Using Redis URL:", redisUrl);
-
     try {
-      // Create Redis client
-      const redisClient = createClient({
-        url: redisUrl,
-        socket: {
-          tls: true,
-          rejectUnauthorized: false
-        }
-      });
-
-      redisClient.on('error', (err) => console.error('Redis Client Error', err));
-      redisClient.on('connect', () => console.log('Redis Client Connected'));
+      // Create session storage with Prisma
+      const sessionStorage = new PrismaSessionStorage();
       
-      // Connect to Redis
-      await redisClient.connect();
-      
-      // Test the connection
-      const pong = await redisClient.ping();
-      console.log("✅ Redis connection test successful:", pong);
-
-      // Create session storage with the Redis client
-      const sessionStorage = new RedisSessionStorage(redisClient);
-      
-      console.log("🔌 Initializing Redis session storage...");
-      await sessionStorage.init();
-      console.log("✅ Redis session storage initialized successfully");
+      console.log("🔌 Initializing Prisma session storage...");
+      console.log("✅ Prisma session storage initialized successfully");
     } catch (error) {
-      console.error("❌ Failed to initialize Redis:", error);
+      console.error("❌ Failed to initialize Prisma:", error);
       throw error;
     }
 
