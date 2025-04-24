@@ -2,7 +2,7 @@
 import "@shopify/shopify-app-remix/adapters/node";
 import { shopifyApp, ApiVersion, AppDistribution } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { createClient } from 'redis';
+import Redis from 'redis';
 
 let shopify;
 let initPromise;
@@ -23,10 +23,9 @@ export async function initShopify() {
 
     try {
       // First, test the Redis connection directly
-      const redisClient = createClient({
+      const redisClient = Redis.createClient({
         url: redisUrl,
-        socket: {
-          tls: true,
+        tls: {
           rejectUnauthorized: false
         }
       });
@@ -34,9 +33,22 @@ export async function initShopify() {
       redisClient.on('error', (err) => console.error('Redis Client Error', err));
       redisClient.on('connect', () => console.log('Redis Client Connected'));
       
-      await redisClient.connect();
-      await redisClient.ping();
-      console.log("✅ Redis connection test successful");
+      await new Promise((resolve, reject) => {
+        redisClient.connect((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      await new Promise((resolve, reject) => {
+        redisClient.ping((err, result) => {
+          if (err) reject(err);
+          else {
+            console.log("✅ Redis connection test successful");
+            resolve();
+          }
+        });
+      });
 
       // Now create the session storage
       const sessionStorage = new RedisSessionStorage({
@@ -51,7 +63,9 @@ export async function initShopify() {
       console.log("✅ Redis session storage initialized successfully");
 
       // Close the test client
-      await redisClient.quit();
+      await new Promise((resolve) => {
+        redisClient.quit(() => resolve());
+      });
     } catch (error) {
       console.error("❌ Failed to initialize Redis:", error);
       throw error;
