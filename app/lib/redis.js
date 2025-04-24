@@ -1,28 +1,27 @@
 // app/lib/redis.js
 import Redis from "ioredis";
 
-let redisClientPromise;
+let redisClient;
 
 export function getRedisClient() {
-  if (!redisClientPromise) {
+  if (!redisClient) {
     console.log("🧠 [Redis] Creating Redis client...");
-    redisClientPromise = new Promise((resolve, reject) => {
-      const client = new Redis(process.env.REDIS_URL);
+    redisClient = new Redis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: true,
+      tls: process.env.REDIS_URL.startsWith("rediss://") ? {} : undefined,
+    });
 
-      client.once("ready", () => {
-        console.log("✅ [Redis] Connected and ready");
-        resolve(client);
-      });
+    redisClient.on("ready", () => {
+      console.log("✅ [Redis] Connected and ready");
+    });
 
-      client.once("error", (err) => {
-        console.error("❌ [Redis] Connection error", err);
-        // Обнуляем promise, чтобы при следующем вызове была новая попытка
-        redisClientPromise = null;
-        reject(err);
-      });
+    redisClient.on("error", (err) => {
+      console.error("❌ [Redis] Connection error", err);
     });
   } else {
-    console.log("♻️ [Redis] Reusing Redis client promise...");
+    console.log("♻️ [Redis] Reusing existing Redis client...");
   }
-  return redisClientPromise;
+
+  return redisClient;
 }
