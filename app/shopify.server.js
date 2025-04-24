@@ -10,14 +10,13 @@ import Redis from "ioredis";
 
 let redisClient;
 
-/**  
+/**
  * Create a lazy-connect ioredis client so that
  * .connect() is only invoked by RedisSessionStorage.
  */
 function getRedisClient() {
   if (!redisClient) {
     redisClient = new Redis(process.env.REDIS_URL, {
-      // ioredis option to delay the actual “connect” call
       lazyConnect: true,
     });
     redisClient.on("ready", () => console.log("✅ [Redis] ready"));
@@ -40,15 +39,16 @@ export async function initShopify() {
     const client = getRedisClient();
     sessionStorage = new RedisSessionStorage(client);
 
-    // this will call client.connect() exactly once
     await sessionStorage.init();
+
+    const scopes = (process.env.SCOPES || "").split(",");
 
     shopify = shopifyApp({
       apiKey: process.env.SHOPIFY_API_KEY,
-      apiSecretKey: process.env.SHOPIFY_API_SECRET ?? "",
+      apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
       apiVersion: ApiVersion.January25,
-      scopes: process.env.SCOPES?.split(",")!,
-      appUrl: process.env.SHOPIFY_APP_URL!,
+      scopes,
+      appUrl: process.env.SHOPIFY_APP_URL || "",
       authPathPrefix: "/auth",
       sessionStorage,
       distribution: AppDistribution.AppStore,
