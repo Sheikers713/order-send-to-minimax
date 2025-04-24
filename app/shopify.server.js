@@ -6,31 +6,27 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { getRedisClient, waitForRedisReady } from "./lib/redis.js";
+import { getRedisClient } from "./lib/redis.js";
 
 let shopify;
 let sessionStorage;
 let initPromise;
-let callCounter = 0;
 
 export async function initShopify() {
-  callCounter++;
-  console.log(`🔂 [Shopify] initShopify called ${callCounter} time(s)`);
-
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
+  console.log("🔂 [Shopify] initShopify called 1 time(s)");
   console.log("🔁 [shopify] Initializing Redis and Shopify instance...");
 
   initPromise = (async () => {
-    const redisClient = getRedisClient();
-    await waitForRedisReady(); // 👈 ждём, пока Redis полностью готов
+    sessionStorage = new RedisSessionStorage(async () => {
+      console.trace("🔍 Redis client requested from:");
+      const client = getRedisClient();
+      return client;
+    });
 
-    if (!sessionStorage) {
-      sessionStorage = new RedisSessionStorage(redisClient);
-      await sessionStorage.init();
-      console.log("✅ [Redis] Session storage initialized");
-    }
+    await sessionStorage.init();
 
     shopify = shopifyApp({
       apiKey: process.env.SHOPIFY_API_KEY,
@@ -50,7 +46,6 @@ export async function initShopify() {
         : {}),
     });
 
-    console.log("✅ [shopify] Initialized");
     return shopify;
   })();
 
