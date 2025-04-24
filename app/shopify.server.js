@@ -11,8 +11,12 @@ import { getRedisClient, waitForRedisReady } from "./lib/redis.js";
 let shopify;
 let sessionStorage;
 let initPromise;
+let callCounter = 0;
 
 export async function initShopify() {
+  callCounter++;
+  console.log(`🔂 [Shopify] initShopify called ${callCounter} time(s)`);
+
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 

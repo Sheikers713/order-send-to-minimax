@@ -8,6 +8,7 @@ let redisReadyPromise;
 export function getRedisClient() {
   if (!redisClient) {
     console.log("🧠 [Redis] Creating Redis client...");
+    console.trace("🔍 Redis client requested from:");
     redisClient = new Redis(process.env.REDIS_URL, {
       maxRetriesPerRequest: null,
       enableReadyCheck: true,
