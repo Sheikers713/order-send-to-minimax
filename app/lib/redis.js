@@ -2,6 +2,8 @@
 import Redis from "ioredis";
 
 let redisClient;
+let redisReady = false;
+let redisReadyPromise;
 
 export function getRedisClient() {
   if (!redisClient) {
@@ -12,16 +14,26 @@ export function getRedisClient() {
       tls: process.env.REDIS_URL.startsWith("rediss://") ? {} : undefined,
     });
 
-    redisClient.on("ready", () => {
-      console.log("✅ [Redis] Connected and ready");
-    });
+    redisReadyPromise = new Promise((resolve, reject) => {
+      redisClient.once("ready", () => {
+        console.log("✅ [Redis] Connected and ready");
+        redisReady = true;
+        resolve();
+      });
 
-    redisClient.on("error", (err) => {
-      console.error("❌ [Redis] Connection error", err);
+      redisClient.once("error", (err) => {
+        console.error("❌ [Redis] Connection error", err);
+        reject(err);
+      });
     });
   } else {
     console.log("♻️ [Redis] Reusing existing Redis client...");
   }
 
   return redisClient;
+}
+
+export async function waitForRedisReady() {
+  if (redisReady) return;
+  await redisReadyPromise;
 }
