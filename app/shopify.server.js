@@ -4,21 +4,27 @@ import {
   AppDistribution,
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
-
 import Redis from "ioredis";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
 
-let shopifyInstance;
+let shopify;
+let sessionStorage;
 
-export async function getShopify() {
-  if (shopifyInstance) return shopifyInstance;
+// ✅ Один раз создаём и повторно используем Redis клиент + sessionStorage
+async function initShopify() {
+  if (shopify) return shopify;
 
-  // 🔧 создаём Redis-клиент правильно
+  console.log("🔁 [shopify] Initializing Redis and Shopify instance...");
+
   const redisClient = new Redis(process.env.REDIS_URL);
-  const sessionStorage = new RedisSessionStorage(redisClient);
-  await sessionStorage.init(); // 👈 обязательно
 
-  const shopify = shopifyApp({
+  if (!sessionStorage) {
+    sessionStorage = new RedisSessionStorage(redisClient);
+    await sessionStorage.init();
+    console.log("✅ [Redis] Session storage initialized");
+  }
+
+  shopify = shopifyApp({
     apiKey: process.env.SHOPIFY_API_KEY,
     apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
     apiVersion: ApiVersion.January25,
@@ -36,20 +42,24 @@ export async function getShopify() {
       : {}),
   });
 
-  shopifyInstance = shopify;
+  console.log("✅ [shopify] Initialized");
+
   return shopify;
 }
 
+export const getShopify = initShopify;
+
 export const apiVersion = ApiVersion.January25;
+
 export const addDocumentResponseHeaders = async (...args) =>
-  (await getShopify()).addDocumentResponseHeaders(...args);
+  (await initShopify()).addDocumentResponseHeaders(...args);
 export const authenticate = async (...args) =>
-  (await getShopify()).authenticate(...args);
+  (await initShopify()).authenticate(...args);
 export const unauthenticated = async (...args) =>
-  (await getShopify()).unauthenticated(...args);
+  (await initShopify()).unauthenticated(...args);
 export const login = async (...args) =>
-  (await getShopify()).login(...args);
+  (await initShopify()).login(...args);
 export const registerWebhooks = async (...args) =>
-  (await getShopify()).registerWebhooks(...args);
-export const sessionStorage = async () =>
-  (await getShopify()).sessionStorage;
+  (await initShopify()).registerWebhooks(...args);
+export const sessionStorageInstance = async () =>
+  (await initShopify()).sessionStorage;
