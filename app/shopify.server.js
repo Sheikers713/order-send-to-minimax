@@ -6,37 +6,9 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { createClient } from "redis";
 
-let redisClient;
 let shopify;
 let initPromise;
-
-/**
- * Lazily create a node-redis client so the adapter can connect when needed
- */
-function getRedisClient() {
-  if (!redisClient) {
-    const redisUrl = process.env.REDIS_URL;
-    if (!redisUrl) {
-      throw new Error("REDIS_URL environment variable is not set");
-    }
-    console.log("🔌 Creating node-redis client with URL:", redisUrl);
-
-    redisClient = createClient({
-      url: redisUrl,
-      socket: {
-        connectTimeout: 10000,
-      },
-    });
-    redisClient.on("ready",       () => console.log("✅ [Redis] ready"));
-    redisClient.on("connect",     () => console.log("🔌 [Redis] connected"));
-    redisClient.on("error",       (err) => console.error("❌ [Redis]", err));
-    redisClient.on("reconnecting",() => console.log("🔄 [Redis] reconnecting"));
-    redisClient.on("end",         () => console.log("🔌 [Redis] connection closed"));
-  }
-  return redisClient;
-}
 
 export async function initShopify() {
   if (shopify) return shopify;
@@ -45,9 +17,15 @@ export async function initShopify() {
   console.log("🔁 Initializing Shopify & Redis session storage…");
 
   initPromise = (async () => {
-    const client = getRedisClient();
-    // Let sessionStorage.init() call client.connect() and check isReady
-    const sessionStorage = new RedisSessionStorage(client);
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+    console.log("🔌 Using Redis URL:", redisUrl);
+
+    // Pass the Redis URL directly so the adapter creates its own client
+    const sessionStorage = new RedisSessionStorage(redisUrl);
+    // Initialize connection and run migrations
     await sessionStorage.init();
     console.log("✅ Redis session storage initialized");
 
