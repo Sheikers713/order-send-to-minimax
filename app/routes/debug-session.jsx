@@ -1,4 +1,4 @@
-import prisma from "~/db.server";
+import prisma from "../../db.server"; // ✅ относительный путь
 import { json } from "@remix-run/node";
 
 export async function loader() {
