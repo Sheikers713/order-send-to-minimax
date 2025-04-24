@@ -8,7 +8,7 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  await authenticate(request);
 
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };

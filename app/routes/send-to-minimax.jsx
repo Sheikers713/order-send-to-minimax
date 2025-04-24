@@ -6,7 +6,6 @@ import { getShopifyOrder } from "../lib/getShopifyOrder";
 import { createCustomer, createReceivedOrder } from "../lib/minimax";
 import { verifyShopifyToken } from "../lib/verifyShopifyToken";
 
-
 export async function loader({ request }) {
   const url = new URL(request.url);
   const orderId = url.searchParams.get("id");
@@ -19,12 +18,12 @@ export async function loader({ request }) {
   console.log(`🧪 [send-to-minimax] Received orderId from URL: ${orderId}`);
 
   try {
-const { session } = await authenticate.admin(request);
+    const { session } = await authenticate(request);
     console.log("🔐 [auth] Authenticated session:");
     console.log("🧾 [session] Full object:", JSON.stringify(session, null, 2));
 
     console.log(`🔐 [auth] Authenticated session for shop: ${session.shop}`);
-	await verifyShopifyToken(session.shop, session.accessToken);
+    await verifyShopifyToken(session.shop, session.accessToken);
     const shopifyOrder = await getShopifyOrder(orderId, session.shop, session.accessToken);
     if (!shopifyOrder) {
       return json({ success: false, message: "Failed to fetch order from Shopify" }, { status: 404 });
@@ -42,12 +41,8 @@ const { session } = await authenticate.admin(request);
     console.log("[minimax] ✅ Order created in Minimax");
 
     return json({ success: true });
-
-  } catch (err) {
-    console.error("🛑 [send-to-minimax] Unexpected error:", err);
-    return json(
-      { success: false, message: "Unexpected error", error: err.message || "unknown" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("🛑 [send-to-minimax] Unexpected error:", error);
+    return json({ success: false, message: error.message }, { status: 500 });
   }
 }
