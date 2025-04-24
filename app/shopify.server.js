@@ -1,7 +1,7 @@
-// app/shopify.server.js
 import "@shopify/shopify-app-remix/adapters/node";
 import { shopifyApp, ApiVersion, AppDistribution } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "./session.server";
+import { authenticate, unauthenticated, login } from "@shopify/shopify-app-remix/adapters/node";
 
 let shopify;
 let initPromise;
@@ -14,9 +14,7 @@ export async function initShopify() {
 
   initPromise = (async () => {
     try {
-      // Create session storage with Prisma
       const sessionStorage = new PrismaSessionStorage();
-      
       console.log("🔌 Initializing Prisma session storage...");
       console.log("✅ Prisma session storage initialized successfully");
 
@@ -43,7 +41,7 @@ export async function initShopify() {
       console.log("✅ Shopify initialized");
       return shopify;
     } catch (error) {
-      console.error("❌ Failed to initialize Prisma:", error);
+      console.error("❌ Failed to initialize Shopify:", error);
       throw error;
     }
   })();
@@ -51,34 +49,9 @@ export async function initShopify() {
   return initPromise;
 }
 
-// Export the Shopify instance
 export const getShopify = initShopify;
-
-// Export authentication functions
-export async function authenticate(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.authenticate(request);
-}
-
-export async function unauthenticated(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.unauthenticated(request);
-}
-
-export async function login(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.login(request);
-}
-
-export async function registerWebhooks(request) {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.registerWebhooks(request);
-}
-
-export async function sessionStorageInstance() {
-  const shopifyInstance = await initShopify();
-  return shopifyInstance.sessionStorage;
-}
-
 export const apiVersion = ApiVersion.January25;
 export const addDocumentResponseHeaders = async (...args) => (await initShopify()).addDocumentResponseHeaders(...args);
+
+// ✅ Use Remix adapter-provided versions
+export { authenticate, unauthenticated, login };
