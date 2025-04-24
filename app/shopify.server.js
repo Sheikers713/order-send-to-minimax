@@ -1,3 +1,4 @@
+// app/shopify.server.js
 import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
@@ -9,22 +10,19 @@ import Redis from "ioredis";
 
 let redisClient;
 
+/**  
+ * Create a lazy-connect ioredis client so that
+ * .connect() is only invoked by RedisSessionStorage.
+ */
 function getRedisClient() {
-  // Проверяем, если Redis уже подключен, не подключаем снова
   if (!redisClient) {
-    redisClient = new Redis(process.env.REDIS_URL);
-    
-    redisClient.on("error", (err) =>
-      console.error("❌ Redis client error:", err)
-    );
-
-    redisClient.on("ready", () => {
-      console.log("✅ Redis connected");
+    redisClient = new Redis(process.env.REDIS_URL, {
+      // ioredis option to delay the actual “connect” call
+      lazyConnect: true,
     });
-  } else if (redisClient.status === "ready") {
-    console.log("♻️ Redis is already connected.");
+    redisClient.on("ready", () => console.log("✅ [Redis] ready"));
+    redisClient.on("error", (err) => console.error("❌ [Redis]", err));
   }
-
   return redisClient;
 }
 
@@ -36,20 +34,21 @@ export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
-  console.log("🔁 Initializing Shopify and Redis");
+  console.log("🔁 Initializing Shopify & Redis…");
 
   initPromise = (async () => {
-    const redis = getRedisClient();
-    sessionStorage = new RedisSessionStorage(redis);
+    const client = getRedisClient();
+    sessionStorage = new RedisSessionStorage(client);
 
+    // this will call client.connect() exactly once
     await sessionStorage.init();
 
     shopify = shopifyApp({
-      apiKey: process.env.SHOPIFY_API_KEY,
-      apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
+      apiKey: process.env.SHOPIFY_API_KEY!,
+      apiSecretKey: process.env.SHOPIFY_API_SECRET ?? "",
       apiVersion: ApiVersion.January25,
-      scopes: process.env.SCOPES?.split(","),
-      appUrl: process.env.SHOPIFY_APP_URL || "",
+      scopes: process.env.SCOPES?.split(",")!,
+      appUrl: process.env.SHOPIFY_APP_URL!,
       authPathPrefix: "/auth",
       sessionStorage,
       distribution: AppDistribution.AppStore,
