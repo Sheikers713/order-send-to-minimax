@@ -44,7 +44,7 @@ export async function initShopify() {
     await sessionStorage.init();
 
     shopify = shopifyApp({
-      apiKey: process.env.SHOPIFY_API_KEY!,
+      apiKey: process.env.SHOPIFY_API_KEY,
       apiSecretKey: process.env.SHOPIFY_API_SECRET ?? "",
       apiVersion: ApiVersion.January25,
       scopes: process.env.SCOPES?.split(",")!,
