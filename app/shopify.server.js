@@ -9,19 +9,28 @@ import Redis from "ioredis";
 
 let redisClient;
 
-function getRedisClient() {
-  // Проверяем, существует ли уже клиент Redis
+function getRedisClient() { 
+	closeRedisConnection();
   if (!redisClient) {
     redisClient = new Redis(process.env.REDIS_URL);
-
-    // Обработчик ошибок Redis
     redisClient.on("error", (err) =>
       console.error("❌ Redis client error:", err)
     );
-
-    // Здесь не вызываем redisClient.connect(), Redis автоматически подключится
   }
   return redisClient;
+}
+
+// Закрытие Redis-соединения
+function closeRedisConnection() {
+  if (redisClient) {
+    redisClient.quit()
+      .then(() => {
+        console.log("✅ Redis connection closed successfully.");
+      })
+      .catch((err) => {
+        console.error("❌ Error closing Redis connection:", err);
+      });
+  }
 }
 
 let shopify;
@@ -29,21 +38,17 @@ let sessionStorage;
 let initPromise;
 
 export async function initShopify() {
-  // Если shopify уже инициализирован, сразу возвращаем его
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
   console.log("🔁 Initializing Shopify and Redis");
 
-  // Асинхронная инициализация
   initPromise = (async () => {
-    const redis = getRedisClient(); // Получаем Redis клиента
-    sessionStorage = new RedisSessionStorage(redis); // Создаем хранилище сессий
+    const redis = getRedisClient();
+    sessionStorage = new RedisSessionStorage(redis);
 
-    // Инициализируем хранилище
     await sessionStorage.init();
 
-    // Создаем и инициализируем приложение Shopify
     shopify = shopifyApp({
       apiKey: process.env.SHOPIFY_API_KEY,
       apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
@@ -69,7 +74,6 @@ export async function initShopify() {
   return initPromise;
 }
 
-// Экспортируем необходимые функции
 export const getShopify = initShopify;
 export const apiVersion = ApiVersion.January25;
 
@@ -90,3 +94,16 @@ export const registerWebhooks = async (...args) =>
 
 export const sessionStorageInstance = async () =>
   (await initShopify()).sessionStorage;
+
+// Обработчик для остановки приложения и закрытия соединения Redis
+process.on("SIGTERM", () => {
+  console.log("🔴 SIGTERM received, shutting down...");
+  closeRedisConnection();
+  process.exit(0); // Завершаем процесс
+});
+
+process.on("SIGINT", () => {
+  console.log("🔴 SIGINT received, shutting down...");
+  closeRedisConnection();
+  process.exit(0); // Завершаем процесс
+});
