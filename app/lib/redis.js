@@ -1,15 +1,14 @@
 // app/lib/redis.js
 import Redis from "ioredis";
 
-let redisClientPromise;
+let redisClient;
 
 export function getRedisClient() {
-  if (!redisClientPromise) {
-    console.log("🧠 [Redis] Creating Redis client (promise)...");
-    redisClientPromise = Promise.resolve(new Redis(process.env.REDIS_URL));
+  if (!redisClient) {
+    console.log("🧠 [Redis] Creating Redis client...");
+    redisClient = new Redis(process.env.REDIS_URL);
   } else {
-    console.log("♻️ [Redis] Reusing Redis client promise...");
+    console.log("♻️ [Redis] Reusing Redis client...");
   }
-
-  return redisClientPromise;
+  return redisClient;
 }
