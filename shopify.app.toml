@@ -3,7 +3,7 @@
 client_id = "f0dd96d3385ba1555f47c4db99352ae6"
 name = "order-send-to-minimax"
 handle = "order-send-to-minimax-2"
-application_url = "https://value-brass-ignored-holders.trycloudflare.com"
+application_url = "https://storm-teens-norm-reserves.trycloudflare.com"
 embedded = true
 
 [build]
@@ -19,9 +19,9 @@ scopes = "read_app_proxy,read_customer_events,read_customers,read_locations,read
 
 [auth]
 redirect_urls = [
-  "https://value-brass-ignored-holders.trycloudflare.com/auth/callback",
-  "https://value-brass-ignored-holders.trycloudflare.com/auth/shopify/callback",
-  "https://value-brass-ignored-holders.trycloudflare.com/api/auth/callback"
+  "https://storm-teens-norm-reserves.trycloudflare.com/auth/callback",
+  "https://storm-teens-norm-reserves.trycloudflare.com/auth/shopify/callback",
+  "https://storm-teens-norm-reserves.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]
