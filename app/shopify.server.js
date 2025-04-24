@@ -2,15 +2,15 @@
 import "@shopify/shopify-app-remix/adapters/node";
 import { shopifyApp, ApiVersion, AppDistribution } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { createClient } from "redis";
+import Redis from "ioredis";
 
 let redisClient;
 let shopify;
 let initPromise;
 
 /**
- * Lazily create a node-redis client for Shopify's RedisSessionStorage.
- * The adapter will call client.connect() and check client.isReady internally.
+ * Create a lazy-connect ioredis client so that
+ * .connect() is only invoked by RedisSessionStorage.
  */
 function getRedisClient() {
   if (!redisClient) {
@@ -18,14 +18,28 @@ function getRedisClient() {
     if (!redisUrl) {
       throw new Error("REDIS_URL environment variable is not set");
     }
-    console.log("🔌 Creating node-redis client with URL:", redisUrl);
+    
+    console.log("🔌 Creating Redis client with URL:", redisUrl);
+    
+    redisClient = new Redis(redisUrl, {
+      lazyConnect: true,
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      connectTimeout: 10000,
+      tls: {
+        rejectUnauthorized: false // Required for Upstash Redis
+      }
+    });
 
-    redisClient = createClient({ url: redisUrl });
     redisClient.on("ready", () => console.log("✅ [Redis] ready"));
     redisClient.on("error", (err) => console.error("❌ [Redis]", err));
     redisClient.on("connect", () => console.log("🔌 [Redis] connected"));
     redisClient.on("reconnecting", () => console.log("🔄 [Redis] reconnecting"));
-    redisClient.on("end", () => console.log("🔌 [Redis] connection closed"));
+    redisClient.on("close", () => console.log("🔌 [Redis] connection closed"));
   }
   return redisClient;
 }
@@ -35,34 +49,45 @@ export async function initShopify() {
   if (initPromise) return initPromise;
 
   console.log("🔁 Initializing Shopify & Redis session storage…");
-  initPromise = (async () => {
-    const client = getRedisClient();
-    // Manager adapter will connect for us and manage readiness
-    const sessionStorage = new RedisSessionStorage(client);
-    await sessionStorage.init();
-    console.log("✅ Redis session storage initialized");
 
-    const scopes = (process.env.SCOPES || "").split(",");
-    shopify = shopifyApp({
-      apiKey: process.env.SHOPIFY_API_KEY || "",
-      apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-      apiVersion: ApiVersion.January25,
-      scopes,
-      appUrl: process.env.SHOPIFY_APP_URL || "",
-      authPathPrefix: "/auth",
-      sessionStorage,
-      distribution: AppDistribution.AppStore,
-      future: { unstable_newEmbeddedAuthStrategy: true, removeRest: true },
-      ...(process.env.SHOP_CUSTOM_DOMAIN ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] } : {}),
-    });
-    console.log("✅ Shopify initialized");
-    return shopify;
+  initPromise = (async () => {
+    try {
+      const client = getRedisClient();
+      console.log("🔌 Initializing Redis session storage...");
+      
+      const sessionStorage = new RedisSessionStorage(client);
+      await sessionStorage.init();
+      console.log("✅ Redis session storage initialized");
+
+      const scopes = (process.env.SCOPES || "").split(",");
+
+      shopify = shopifyApp({
+        apiKey: process.env.SHOPIFY_API_KEY || "",
+        apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
+        apiVersion: ApiVersion.January25,
+        scopes,
+        appUrl: process.env.SHOPIFY_APP_URL || "",
+        authPathPrefix: "/auth",
+        sessionStorage,
+        distribution: AppDistribution.AppStore,
+        future: { unstable_newEmbeddedAuthStrategy: true, removeRest: true },
+        ...(process.env.SHOP_CUSTOM_DOMAIN ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] } : {}),
+      });
+
+      console.log("✅ Shopify initialized");
+      return shopify;
+    } catch (error) {
+      console.error("❌ Error initializing Shopify:", error);
+      throw error;
+    }
   })();
+
   return initPromise;
 }
 
 export const getShopify = initShopify;
 export const apiVersion = ApiVersion.January25;
+
 export const addDocumentResponseHeaders = async (...args) => (await initShopify()).addDocumentResponseHeaders(...args);
 export const authenticate = async (...args) => (await initShopify()).authenticate(...args);
 export const unauthenticated = async (...args) => (await initShopify()).unauthenticated(...args);
