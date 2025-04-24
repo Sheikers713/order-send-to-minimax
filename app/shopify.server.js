@@ -9,10 +9,9 @@ let shopify;
 let initPromise;
 
 /**
- * Create a lazy-connect ioredis client so that
- * .connect() is only invoked by RedisSessionStorage.
+ * Create and test Redis connection before initializing session storage
  */
-function getRedisClient() {
+async function getRedisClient() {
   if (!redisClient) {
     const redisUrl = process.env.REDIS_URL;
     if (!redisUrl) {
@@ -22,7 +21,7 @@ function getRedisClient() {
     console.log("🔌 Creating Redis client with URL:", redisUrl);
     
     redisClient = new Redis(redisUrl, {
-      lazyConnect: true,
+      lazyConnect: false, // Connect immediately
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
         return delay;
@@ -40,6 +39,15 @@ function getRedisClient() {
     redisClient.on("connect", () => console.log("🔌 [Redis] connected"));
     redisClient.on("reconnecting", () => console.log("🔄 [Redis] reconnecting"));
     redisClient.on("close", () => console.log("🔌 [Redis] connection closed"));
+
+    // Test the connection
+    try {
+      await redisClient.ping();
+      console.log("✅ Redis connection test successful");
+    } catch (error) {
+      console.error("❌ Redis connection test failed:", error);
+      throw error;
+    }
   }
   return redisClient;
 }
@@ -52,7 +60,7 @@ export async function initShopify() {
 
   initPromise = (async () => {
     try {
-      const client = getRedisClient();
+      const client = await getRedisClient();
       console.log("🔌 Initializing Redis session storage...");
       
       const sessionStorage = new RedisSessionStorage(client);
