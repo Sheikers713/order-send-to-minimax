@@ -1,13 +1,13 @@
-require("@shopify/shopify-app-remix/adapters/node");
+// app/shopify.server.js
 
-const {
+import "@shopify/shopify-app-remix/adapters/node";
+import {
   ApiVersion,
   AppDistribution,
   shopifyApp,
-} = require("@shopify/shopify-app-remix/server");
-
-const { RedisSessionStorage } = require("@shopify/shopify-app-session-storage-redis");
-const { getRedisClient } = require("./lib/redis");
+} from "@shopify/shopify-app-remix/server";
+import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
+import { getRedisClient } from "./lib/redis";
 
 let shopify;
 let sessionStorage;
@@ -43,18 +43,20 @@ async function initShopify() {
   });
 
   console.log("✅ [shopify] Initialized");
-
   return shopify;
 }
 
-module.exports = {
-  getShopify: initShopify,
-  apiVersion: ApiVersion.January25,
-  addDocumentResponseHeaders: async (...args) =>
-    (await initShopify()).addDocumentResponseHeaders(...args),
-  authenticate: async (...args) => (await initShopify()).authenticate(...args),
-  unauthenticated: async (...args) => (await initShopify()).unauthenticated(...args),
-  login: async (...args) => (await initShopify()).login(...args),
-  registerWebhooks: async (...args) => (await initShopify()).registerWebhooks(...args),
-  sessionStorageInstance: async () => (await initShopify()).sessionStorage,
-};
+export const getShopify = initShopify;
+export const apiVersion = ApiVersion.January25;
+export const addDocumentResponseHeaders = async (...args) =>
+  (await initShopify()).addDocumentResponseHeaders(...args);
+export const authenticate = async (...args) =>
+  (await initShopify()).authenticate(...args);
+export const unauthenticated = async (...args) =>
+  (await initShopify()).unauthenticated(...args);
+export const login = async (...args) =>
+  (await initShopify()).login(...args);
+export const registerWebhooks = async (...args) =>
+  (await initShopify()).registerWebhooks(...args);
+export const sessionStorageInstance = async () =>
+  (await initShopify()).sessionStorage;
