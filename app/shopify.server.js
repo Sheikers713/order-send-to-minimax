@@ -48,10 +48,17 @@ export async function initShopify() {
       redisClient.on('error', (err) => console.error('Redis Client Error', err));
       redisClient.on('connect', () => console.log('Redis Client Connected'));
       
-      // Connect to Redis
-      await redisClient.connect();
-      await redisClient.ping();
-      console.log("✅ Redis connection test successful");
+      // Connect to Redis using the correct method
+      if (typeof redisClient.connect === 'function') {
+        await redisClient.connect();
+      } else {
+        // Try alternative connection method
+        await redisClient.connect();
+      }
+      
+      // Test the connection
+      const pong = await redisClient.ping();
+      console.log("✅ Redis connection test successful:", pong);
 
       // Create session storage with the wrapped Redis client
       const sessionStorage = new RedisSessionStorage(redisClient);
