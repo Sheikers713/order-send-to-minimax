@@ -1,3 +1,4 @@
+// app/shopify.server.js
 import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
@@ -5,7 +6,27 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { RedisSessionStorage } from "@shopify/shopify-app-session-storage-redis";
-import { getRedisClient } from "./lib/redis.js";
+import { createClient } from "redis";
+
+let redisClient;
+
+function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL,
+    });
+
+    redisClient.on("error", (err) =>
+      console.error("❌ Redis client error:", err)
+    );
+
+    redisClient.connect().then(() => {
+      console.log("✅ Redis connected");
+    });
+  }
+
+  return redisClient;
+}
 
 let shopify;
 let sessionStorage;
@@ -15,13 +36,12 @@ export async function initShopify() {
   if (shopify) return shopify;
   if (initPromise) return initPromise;
 
-  console.log("🔂 [Shopify] initShopify called");
-  console.log("🔁 [shopify] Initializing Redis and Shopify instance...");
+  console.log("🔁 Initializing Shopify and Redis");
 
   initPromise = (async () => {
     const redis = getRedisClient();
-
     sessionStorage = new RedisSessionStorage(redis);
+
     await sessionStorage.init();
 
     shopify = shopifyApp({
@@ -42,6 +62,7 @@ export async function initShopify() {
         : {}),
     });
 
+    console.log("✅ Shopify initialized");
     return shopify;
   })();
 
@@ -53,13 +74,18 @@ export const apiVersion = ApiVersion.January25;
 
 export const addDocumentResponseHeaders = async (...args) =>
   (await initShopify()).addDocumentResponseHeaders(...args);
+
 export const authenticate = async (...args) =>
   (await initShopify()).authenticate(...args);
+
 export const unauthenticated = async (...args) =>
   (await initShopify()).unauthenticated(...args);
+
 export const login = async (...args) =>
   (await initShopify()).login(...args);
+
 export const registerWebhooks = async (...args) =>
   (await initShopify()).registerWebhooks(...args);
+
 export const sessionStorageInstance = async () =>
   (await initShopify()).sessionStorage;
