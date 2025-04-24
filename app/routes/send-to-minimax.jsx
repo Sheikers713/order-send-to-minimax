@@ -10,62 +10,57 @@ export async function loader({ request }) {
   const orderId = url.searchParams.get("id");
 
   if (!orderId) {
-    console.warn("⚠️ orderId not provided");
+    console.warn("[send-to-minimax] ❗ Missing orderId in URL");
     return json({ success: false, message: "Missing orderId" }, { status: 400 });
   }
 
   console.log(`🧪 [send-to-minimax] Received orderId from URL: ${orderId}`);
 
+  let authResult;
   try {
-    const authResult = await authenticate.admin(request);
-    console.log("🔍 [authResult] = ", authResult);
+    authResult = await authenticate.admin(request);
 
     if ('redirect' in authResult) {
-      console.warn("🔁 [authResult] Redirect required, returning redirect...");
+      console.log("🔁 [authResult] Redirect required, returning redirect...");
       return authResult.redirect;
     }
 
     const { session } = authResult;
-
-    if (!session || !session.shop || !session.accessToken) {
-      console.error("❌ Session missing required fields:", session);
-      return json({ success: false, message: "Invalid Shopify session" }, { status: 401 });
-    }
-
-    console.log(`🔐 Authenticated shop: ${session.shop}`);
-    console.log(`🪪 Access token: ${session.accessToken.slice(0, 10)}...`);
+    console.log(`🔐 [authResult] Authenticated session for shop: ${session.shop}`);
 
     const shopifyOrder = await getShopifyOrder(orderId, session.shop, session.accessToken);
-
     if (!shopifyOrder) {
-      console.warn("❌ Failed to fetch order from Shopify");
+      console.warn("[shopifyOrder] ❌ Failed to fetch order from Shopify");
       return json({ success: false, message: "Failed to fetch order from Shopify" }, { status: 404 });
     }
 
-    console.log("📦 Shopify order fetched:", shopifyOrder.name);
+    console.log(`[shopifyOrder] ✅ Order fetched from Shopify: ${shopifyOrder.name}`);
 
     const token = await getAccessToken();
-    console.log("🔑 Minimax token acquired");
+    console.log("[minimax] 🔑 Token received");
 
     const customerId = await createCustomer(token, shopifyOrder);
-
     if (!customerId) {
-      console.error("❌ Failed to create customer in Minimax");
+      console.error("[minimax] ❌ Failed to create customer in Minimax");
       return json({ success: false, message: "Customer creation failed" }, { status: 500 });
     }
 
-    console.log("👤 Customer created in Minimax:", customerId);
+    console.log(`[minimax] 👤 Customer created with ID: ${customerId}`);
 
-    const response = await createReceivedOrder(token, shopifyOrder, customerId);
-    console.log("✅ Order successfully created in Minimax:", response);
+    const minimaxResponse = await createReceivedOrder(token, shopifyOrder, customerId);
+    console.log("[minimax] ✅ Order created in Minimax:", minimaxResponse);
 
-    return json({ success: true, minimaxResponse: response });
+    return json({ success: true, minimaxResponse });
+
   } catch (err) {
+    // ✨ Новая логика: если ошибка содержит redirect — возвращаем его
+    if (err && typeof err === "object" && "status" in err && err.status === 302 && "headers" in err) {
+      const location = err.headers.get("location");
+      console.warn("↪️ [send-to-minimax] Redirect caught as error, redirecting to:", location);
+      return Response.redirect(location, 302);
+    }
+
     console.error("🛑 Unexpected error in send-to-minimax loader:", err);
-    return json({
-      success: false,
-      message: "Unexpected error occurred",
-      error: err?.message || "unknown"
-    }, { status: 500 });
+    return json({ success: false, message: "Unexpected error", error: err.message || "unknown" }, { status: 500 });
   }
 }
