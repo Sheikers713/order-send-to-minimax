@@ -18,7 +18,11 @@ const shopify = shopifyApp({
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
+    v3_authenticatePublic: true,
+    v3_lineItemBilling: true,
+    v3_webhookAdminContext: true,
   },
+  isEmbeddedApp: true,
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
