@@ -67,8 +67,14 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
+  ssr: {
+    noExternal: ["axios"],
+  },
   build: {
     assetsInlineLimit: 0,
+    rollupOptions: {
+      external: ["axios"],
+    },
   },
   optimizeDeps: {
     include: ["@shopify/app-bridge-react", "@shopify/polaris"],
