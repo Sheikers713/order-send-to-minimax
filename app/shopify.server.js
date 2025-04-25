@@ -53,8 +53,16 @@ export const sessionStorage = shopify.sessionStorage;
 export const apiVersion = ApiVersion.January25;
 
 export const addDocumentResponseHeaders = async (request, responseHeaders) => {
-  const { headers } = await shopify.authenticate.admin(request);
-  Object.entries(headers).forEach(([key, value]) => {
-    responseHeaders.set(key, value);
-  });
+  try {
+    const { headers } = await shopify.authenticate.admin(request);
+    if (headers) {
+      Object.entries(headers).forEach(([key, value]) => {
+        responseHeaders.set(key, value);
+      });
+    }
+  } catch (error) {
+    // If authentication fails, we still want to serve the page
+    // but without the Shopify-specific headers
+    console.warn('Authentication failed, serving page without Shopify headers:', error.message);
+  }
 };

@@ -13,7 +13,15 @@ export const loader = async ({ request }) => {
     const { session } = await authenticate(request);
     
     if (!session) {
-      throw new Response("Unauthorized", { status: 401 });
+      const url = new URL(request.url);
+      const searchParams = new URLSearchParams();
+      searchParams.set("shop", url.searchParams.get("shop") || "");
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: `/auth/login?${searchParams.toString()}`,
+        },
+      });
     }
 
     return json({ 
@@ -22,7 +30,15 @@ export const loader = async ({ request }) => {
     });
   } catch (error) {
     console.error("Authentication error:", error);
-    throw new Response("Authentication failed", { status: 401 });
+    const url = new URL(request.url);
+    const searchParams = new URLSearchParams();
+    searchParams.set("shop", url.searchParams.get("shop") || "");
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/auth/login?${searchParams.toString()}`,
+      },
+    });
   }
 };
 
