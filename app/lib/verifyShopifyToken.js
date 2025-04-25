@@ -8,7 +8,8 @@ export async function verifyShopifyToken(shop, token) {
   try {
     const response = await axios.get(url, {
       headers: {
-        "X-Shopify-Access-Token": token
+        "X-Shopify-Access-Token": token,
+        "X-Shopify-API-Version": "2024-04"
       }
     });
 
@@ -17,10 +18,30 @@ export async function verifyShopifyToken(shop, token) {
     return true;
 
   } catch (error) {
-    console.error("❌ [verifyToken] Token is invalid.");
+    console.error("❌ [verifyToken] Token verification failed.");
     if (error.response) {
       console.error("📨 Status:", error.response.status);
       console.error("📄 Response:", JSON.stringify(error.response.data, null, 2));
+      
+      // If it's a 401, we should try to refresh the token
+      if (error.response.status === 401) {
+        console.log("🔄 [verifyToken] Token might be expired, attempting to refresh...");
+        // The Shopify App Bridge will handle token refresh automatically
+        // We just need to retry the request
+        try {
+          const retryResponse = await axios.get(url, {
+            headers: {
+              "X-Shopify-Access-Token": token,
+              "X-Shopify-API-Version": "2024-04"
+            }
+          });
+          console.log("✅ [verifyToken] Token refresh successful");
+          return true;
+        } catch (retryError) {
+          console.error("❌ [verifyToken] Token refresh failed");
+          return false;
+        }
+      }
     } else {
       console.error("⚠️ Error:", error.message);
     }

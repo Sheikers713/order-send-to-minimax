@@ -9,6 +9,9 @@ const MINIMAX = {
 };
 const MINIMAX_API = `https://moj.minimax.rs/RS/API/api/orgs/${MINIMAX.organisationId}`;
 
+// Cache for in-flight requests to prevent duplicates
+const requestCache = new Map();
+
 export async function createCustomer(token, order) {
   const billing = order.billing_address;
 
@@ -88,6 +91,68 @@ export async function findCustomerId(token, code) {
   }
 }
 
+export async function getItemByCode(code) {
+  const cacheKey = `item-${code}`;
+  
+  // Check if request is already in progress
+  if (requestCache.has(cacheKey)) {
+    console.log(`🔄 [getItemByCode] Request for code ${code} already in progress, waiting...`);
+    return requestCache.get(cacheKey);
+  }
+
+  try {
+    console.log(`🔍 Поиск артикула по коду: "${code}"`);
+    console.log(`➡️ Закодированный код: '${code}'`);
+    console.log(`📡 URL запроса: ${MINIMAX_API}/items/code(${code})`);
+
+    const requestPromise = axios.get(`${MINIMAX_API}/items/code(${code})`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    // Store the promise in cache
+    requestCache.set(cacheKey, requestPromise);
+
+    const response = await requestPromise;
+    
+    if (response.data) {
+      console.log('✅ Найден через GetItemByCode:', response.data);
+      return response.data;
+    }
+
+    console.log(`⚠️ Не найден через GetItemByCode (${code})`);
+    console.log('🔍 Переход к полному просмотру товаров (PageSize=10000)');
+
+    // If not found, try full search
+    const fullSearchResponse = await axios.get(`${MINIMAX_API}/items?PageSize=10000`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    const item = fullSearchResponse.data.Items.find(item => item.Code === code);
+    if (item) {
+      console.log('✅ Найден через полный просмотр:', item);
+      return item;
+    }
+
+    throw new Error(`❌ Артикул ${code} не найден.`);
+  } catch (error) {
+    if (error.response?.status === 429) {
+      console.log('⚠️ Rate limit hit, waiting before retry...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return getItemByCode(code);
+    }
+    throw error;
+  } finally {
+    // Clean up cache
+    requestCache.delete(cacheKey);
+  }
+}
+
 export async function createReceivedOrder(token, order, customerId) {
   const billing = order.billing_address;
   const orderRows = [];
@@ -131,10 +196,40 @@ export async function createReceivedOrder(token, order, customerId) {
     IsPriceWithVAT: true
   };
 
-  await axios.post(`${MINIMAX_API}/orders`, data, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
+  const cacheKey = `order-${order.order_number}`;
+  
+  // Check if order creation is already in progress
+  if (requestCache.has(cacheKey)) {
+    console.log(`🔄 [createReceivedOrder] Order ${order.order_number} already being created, waiting...`);
+    return requestCache.get(cacheKey);
+  }
+
+  try {
+    console.log('📦 [createReceivedOrder] Creating order in Minimax...');
+    
+    const requestPromise = axios.post(`${MINIMAX_API}/receivedorders`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    // Store the promise in cache
+    requestCache.set(cacheKey, requestPromise);
+
+    const response = await requestPromise;
+    console.log('[minimax] ✅ Order created in Minimax');
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 429) {
+      console.log('⚠️ Rate limit hit, waiting before retry...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return createReceivedOrder(token, order, customerId);
     }
-  });
+    throw error;
+  } finally {
+    // Clean up cache
+    requestCache.delete(cacheKey);
+  }
 }
