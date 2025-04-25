@@ -28,10 +28,26 @@ const shopify = shopifyApp({
 export default shopify;
 
 // Export authentication functions
-export const authenticate = (request) => shopify.authenticate(request);
-export const unauthenticated = (request) => shopify.unauthenticated(request);
-export const login = (request) => shopify.login(request);
-export const registerWebhooks = (request) => shopify.registerWebhooks(request);
+export const authenticate = async (request) => {
+  const { session } = await shopify.authenticate.admin(request);
+  return { session };
+};
+
+export const unauthenticated = async (request) => {
+  return shopify.authenticate.public(request);
+};
+
+export const login = async (request) => {
+  return shopify.authenticate.login(request);
+};
+
+export const registerWebhooks = async (request) => {
+  return shopify.webhooks.register(request);
+};
+
 export const sessionStorage = shopify.sessionStorage;
 export const apiVersion = ApiVersion.January25;
-export const addDocumentResponseHeaders = (request) => shopify.addDocumentResponseHeaders(request);
+
+export const addDocumentResponseHeaders = async (request) => {
+  return shopify.authenticate.admin(request);
+};
