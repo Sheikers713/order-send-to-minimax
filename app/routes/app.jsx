@@ -4,17 +4,30 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server";
+import { json } from "@remix-run/node";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  await authenticate(request);
+  try {
+    const { session } = await authenticate(request);
+    
+    if (!session) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+    return json({ 
+      apiKey: process.env.SHOPIFY_API_KEY || "",
+      shop: session.shop
+    });
+  } catch (error) {
+    console.error("Authentication error:", error);
+    throw new Response("Authentication failed", { status: 401 });
+  }
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, shop } = useLoaderData();
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
