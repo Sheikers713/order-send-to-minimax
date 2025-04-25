@@ -52,6 +52,9 @@ export const registerWebhooks = async (request) => {
 export const sessionStorage = shopify.sessionStorage;
 export const apiVersion = ApiVersion.January25;
 
-export const addDocumentResponseHeaders = async (request) => {
-  return shopify.authenticate.admin(request);
+export const addDocumentResponseHeaders = async (request, responseHeaders) => {
+  const { headers } = await shopify.authenticate.admin(request);
+  Object.entries(headers).forEach(([key, value]) => {
+    responseHeaders.set(key, value);
+  });
 };
