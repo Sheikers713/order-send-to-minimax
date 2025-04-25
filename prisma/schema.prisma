@@ -11,15 +11,16 @@ datasource db {
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  shop      String
-  state     String
-  isOnline  Boolean  @default(false)
-  scope     String?
-  expires   DateTime?
+  id          String   @id @default(cuid())
+  shop        String
+  state       String
+  isOnline    Boolean  @default(false)
+  scope       String?
   accessToken String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  expires     DateTime?
+  data        Json @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([shop])
-} 
+}
