@@ -6,7 +6,7 @@
   "scripts": {
     "build": "remix vite:build",
     "dev": "remix vite:dev",
-    "start": "remix-serve ./build/server/index.js --port $PORT --hostname 0.0.0.0",
+    "start": "remix-serve ./build/server/index.js",
     "typecheck": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy"
@@ -22,9 +22,9 @@
     "@shopify/app-bridge": "^3.7.10",
     "@shopify/app-bridge-react": "^4.1.6",
     "@shopify/polaris": "^12.0.0",
-    "@shopify/shopify-api": "^7.7.0",
     "@shopify/shopify-app-remix": "^2.0.0",
-    "axios": "^1.9.0",
+    "@shopify/shopify-api": "^7.7.0",
+    "axios": "^1.6.7",
     "isbot": "^4.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -47,6 +47,6 @@
     "vite": "^5.0.4"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   }
 }
