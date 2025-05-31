@@ -179,13 +179,6 @@ export async function createReceivedOrder(token, order, customerId) {
   const orderNumber = order.order_number;
   const lockKey = `order-lock-${orderNumber}`;
   
-  // Check if order already exists
-  const existingOrder = await findExistingOrder(token, orderNumber);
-  if (existingOrder) {
-    console.log(`✅ Order #${orderNumber} already exists in Minimax with ID: ${existingOrder.ID}`);
-    return existingOrder;
-  }
-
   // Check if order creation is already in progress
   if (orderCreationLocks.has(lockKey)) {
     console.log(`🔄 [createReceivedOrder] Order ${orderNumber} creation already in progress, waiting...`);
@@ -252,38 +245,16 @@ export async function createReceivedOrder(token, order, customerId) {
 
       console.log('📥 Response from Minimax:', JSON.stringify(response.data, null, 2));
       
-      // Если API вернул пустой массив, но статус 200, считаем что заказ создан успешно
-      if (Array.isArray(response.data) && response.data.length === 0) {
-        console.log('📝 Empty array response, checking if order was created...');
-        // Даем API время на обработку
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Пробуем найти заказ несколько раз с интервалом
-        for (let i = 0; i < 3; i++) {
-          const createdOrder = await findExistingOrder(token, orderNumber);
-          if (createdOrder) {
-            console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
-            return createdOrder;
-          }
-          console.log(`[minimax] ⏳ Waiting for order to appear in Minimax (attempt ${i + 1}/3)...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        
-        // Если заказ все еще не найден, проверяем еще раз через более длительный интервал
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        const finalCheck = await findExistingOrder(token, orderNumber);
-        if (finalCheck) {
-          console.log('[minimax] ✅ Order found after longer wait with ID:', finalCheck.ID);
-          return finalCheck;
-        }
-        
-        throw new Error('Order creation appears successful but order not found in Minimax');
-      }
-      
       // Если получили ID заказа напрямую
       if (response.data?.ID) {
         console.log('[minimax] ✅ Order created in Minimax with ID:', response.data.ID);
         return response.data;
+      }
+      
+      // Если получили пустой массив, считаем что заказ создан успешно
+      if (Array.isArray(response.data) && response.data.length === 0) {
+        console.log('[minimax] ✅ Order created successfully (empty array response)');
+        return { success: true, message: 'Order created successfully' };
       }
       
       throw new Error('Order creation failed - invalid response format');
@@ -299,13 +270,6 @@ export async function createReceivedOrder(token, order, customerId) {
         console.log('⚠️ Rate limit hit, waiting before retry...');
         await new Promise(resolve => setTimeout(resolve, 2000));
         return createReceivedOrder(token, order, customerId);
-      }
-      
-      // Check if order was created despite the error
-      const existingOrder = await findExistingOrder(token, orderNumber);
-      if (existingOrder) {
-        console.log(`✅ Order #${orderNumber} was created despite error, returning existing order`);
-        return existingOrder;
       }
       
       throw error;
