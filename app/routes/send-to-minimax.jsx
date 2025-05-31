@@ -3,7 +3,7 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { getAccessToken } from "../lib/getAccessToken";
 import { getShopifyOrder } from "../lib/getShopifyOrder";
-import { createCustomer, createReceivedOrder } from "../lib/minimax";
+import { createCustomer, createReceivedOrder, findExistingOrder } from "../lib/minimax";
 import { verifyShopifyToken } from "../lib/verifyShopifyToken";
 
 export async function loader({ request }) {

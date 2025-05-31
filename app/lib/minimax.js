@@ -257,11 +257,27 @@ export async function createReceivedOrder(token, order, customerId) {
         console.log('📝 Empty array response, checking if order was created...');
         // Даем API время на обработку
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const createdOrder = await findExistingOrder(token, orderNumber);
-        if (createdOrder) {
-          console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
-          return createdOrder;
+        
+        // Пробуем найти заказ несколько раз с интервалом
+        for (let i = 0; i < 3; i++) {
+          const createdOrder = await findExistingOrder(token, orderNumber);
+          if (createdOrder) {
+            console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
+            return createdOrder;
+          }
+          console.log(`[minimax] ⏳ Waiting for order to appear in Minimax (attempt ${i + 1}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
+        
+        // Если заказ все еще не найден, проверяем еще раз через более длительный интервал
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        const finalCheck = await findExistingOrder(token, orderNumber);
+        if (finalCheck) {
+          console.log('[minimax] ✅ Order found after longer wait with ID:', finalCheck.ID);
+          return finalCheck;
+        }
+        
+        throw new Error('Order creation appears successful but order not found in Minimax');
       }
       
       // Если получили ID заказа напрямую
