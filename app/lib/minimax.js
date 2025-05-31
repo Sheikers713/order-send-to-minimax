@@ -11,6 +11,7 @@ const MINIMAX_API = `https://moj.minimax.rs/RS/API/api/orgs/${MINIMAX.organisati
 
 // Cache for in-flight requests to prevent duplicates
 const requestCache = new Map();
+const orderCreationLocks = new Map();
 
 export async function createCustomer(token, order) {
   const billing = order.billing_address;
@@ -175,126 +176,133 @@ export async function findExistingOrder(token, orderNumber) {
 }
 
 export async function createReceivedOrder(token, order, customerId) {
+  const orderNumber = order.order_number;
+  const lockKey = `order-lock-${orderNumber}`;
+  
   // Check if order already exists
-  const existingOrder = await findExistingOrder(token, order.order_number);
+  const existingOrder = await findExistingOrder(token, orderNumber);
   if (existingOrder) {
-    console.log(`✅ Order #${order.order_number} already exists in Minimax with ID: ${existingOrder.ID}`);
+    console.log(`✅ Order #${orderNumber} already exists in Minimax with ID: ${existingOrder.ID}`);
     return existingOrder;
   }
 
-  const billing = order.billing_address;
-  const orderRows = [];
-
-  for (const item of order.line_items) {
-    const minimaxItem = await findItemSafe(token, item.sku);
-    if (!minimaxItem) throw new Error(`❌ Артикул ${item.sku} не найден.`);
-
-    orderRows.push({
-      Item: { ID: minimaxItem.ItemId },
-      ItemCode: minimaxItem.Code,
-      ItemName: minimaxItem.Name,
-      Quantity: item.quantity,
-      Price: parseFloat(item.price),
-      UnitOfMeasurement: minimaxItem.UnitOfMeasurement || "kom",
-      Warehouse: { ID: 34524 }
-    });
-  }
-
-  const date = order.created_at.split('T')[0];
-
-  const data = {
-    DocumentType: "ReceivedOrder",
-    Date: date,
-    DueDate: date,
-    ReceivedIssued: "P",
-    Customer: { ID: customerId },
-    CustomerName: `${billing.first_name} ${billing.last_name}`,
-    CustomerAddress: billing.address1,
-    CustomerPostalCode: billing.zip,
-    CustomerCity: billing.city,
-    CustomerCountry: { ID: 3, Name: "RS" },
-    CustomerCountryName: billing.country || "Serbia",
-    Analytic: 107239,
-    Currency: { ID: 2, Name: order.currency || "RSD" },
-    Reference: `#${order.order_number}`,
-    Notes: `Porudžbina iz Shopify #${order.order_number}`,
-    DescriptionBelow: "Potvrđujemo Vašu porudžbinu koja je prikazana u ovom dokumentu.",
-    Status: "P",
-    OrderRows: orderRows,
-    IsPriceWithVAT: true,
-    IdempotencyKey: `shopify-${order.order_number}-${Date.now()}`
-  };
-
-  const cacheKey = `order-${order.order_number}`;
-  
   // Check if order creation is already in progress
-  if (requestCache.has(cacheKey)) {
-    console.log(`🔄 [createReceivedOrder] Order ${order.order_number} already being created, waiting...`);
-    return requestCache.get(cacheKey);
+  if (orderCreationLocks.has(lockKey)) {
+    console.log(`🔄 [createReceivedOrder] Order ${orderNumber} creation already in progress, waiting...`);
+    return orderCreationLocks.get(lockKey);
   }
+
+  // Create a promise for this order creation
+  const creationPromise = (async () => {
+    try {
+      const billing = order.billing_address;
+      const orderRows = [];
+
+      for (const item of order.line_items) {
+        const minimaxItem = await findItemSafe(token, item.sku);
+        if (!minimaxItem) throw new Error(`❌ Артикул ${item.sku} не найден.`);
+
+        orderRows.push({
+          Item: { ID: minimaxItem.ItemId },
+          ItemCode: minimaxItem.Code,
+          ItemName: minimaxItem.Name,
+          Quantity: item.quantity,
+          Price: parseFloat(item.price),
+          UnitOfMeasurement: minimaxItem.UnitOfMeasurement || "kom",
+          Warehouse: { ID: 34524 }
+        });
+      }
+
+      const date = order.created_at.split('T')[0];
+
+      const data = {
+        DocumentType: "ReceivedOrder",
+        Date: date,
+        DueDate: date,
+        ReceivedIssued: "P",
+        Customer: { ID: customerId },
+        CustomerName: `${billing.first_name} ${billing.last_name}`,
+        CustomerAddress: billing.address1,
+        CustomerPostalCode: billing.zip,
+        CustomerCity: billing.city,
+        CustomerCountry: { ID: 3, Name: "RS" },
+        CustomerCountryName: billing.country || "Serbia",
+        Analytic: 107239,
+        Currency: { ID: 2, Name: order.currency || "RSD" },
+        Reference: `#${orderNumber}`,
+        Notes: `Porudžbina iz Shopify #${orderNumber}`,
+        DescriptionBelow: "Potvrđujemo Vašu porudžbinu koja je prikazana u ovom dokumentu.",
+        Status: "P",
+        OrderRows: orderRows,
+        IsPriceWithVAT: true,
+        IdempotencyKey: `shopify-${orderNumber}-${Date.now()}`
+      };
+
+      console.log('📦 [createReceivedOrder] Creating order in Minimax...');
+      console.log('📤 Request data:', JSON.stringify(data, null, 2));
+      
+      const response = await axios.post(`${MINIMAX_API}/orders`, data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Idempotency-Key': data.IdempotencyKey
+        }
+      });
+
+      console.log('📥 Response from Minimax:', JSON.stringify(response.data, null, 2));
+      
+      // Если API вернул пустой массив, но статус 200, считаем что заказ создан успешно
+      if (Array.isArray(response.data) && response.data.length === 0) {
+        console.log('📝 Empty array response, checking if order was created...');
+        // Даем API время на обработку
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const createdOrder = await findExistingOrder(token, orderNumber);
+        if (createdOrder) {
+          console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
+          return createdOrder;
+        }
+      }
+      
+      // Если получили ID заказа напрямую
+      if (response.data?.ID) {
+        console.log('[minimax] ✅ Order created in Minimax with ID:', response.data.ID);
+        return response.data;
+      }
+      
+      throw new Error('Order creation failed - invalid response format');
+    } catch (error) {
+      console.error('❌ Error creating order:', error.message);
+      if (error.response) {
+        console.error('📥 Response data:', error.response.data);
+        console.error('📟 Status code:', error.response.status);
+        console.error('🔑 Headers:', error.response.headers);
+      }
+      
+      if (error.response?.status === 429) {
+        console.log('⚠️ Rate limit hit, waiting before retry...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return createReceivedOrder(token, order, customerId);
+      }
+      
+      // Check if order was created despite the error
+      const existingOrder = await findExistingOrder(token, orderNumber);
+      if (existingOrder) {
+        console.log(`✅ Order #${orderNumber} was created despite error, returning existing order`);
+        return existingOrder;
+      }
+      
+      throw error;
+    }
+  })();
+
+  // Store the promise in the lock map
+  orderCreationLocks.set(lockKey, creationPromise);
 
   try {
-    console.log('📦 [createReceivedOrder] Creating order in Minimax...');
-    console.log('📤 Request data:', JSON.stringify(data, null, 2));
-    
-    const requestPromise = axios.post(`${MINIMAX_API}/orders`, data, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Idempotency-Key': data.IdempotencyKey
-      }
-    });
-
-    // Store the promise in cache
-    requestCache.set(cacheKey, requestPromise);
-
-    const response = await requestPromise;
-    console.log('📥 Response from Minimax:', JSON.stringify(response.data, null, 2));
-    
-    // Если API вернул пустой массив, но статус 200, считаем что заказ создан успешно
-    if (Array.isArray(response.data) && response.data.length === 0) {
-      console.log('📝 Empty array response, checking if order was created...');
-      // Даем API время на обработку
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const createdOrder = await findExistingOrder(token, order.order_number);
-      if (createdOrder) {
-        console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
-        return createdOrder;
-      }
-    }
-    
-    // Если получили ID заказа напрямую
-    if (response.data?.ID) {
-      console.log('[minimax] ✅ Order created in Minimax with ID:', response.data.ID);
-      return response.data;
-    }
-    
-    throw new Error('Order creation failed - invalid response format');
-  } catch (error) {
-    console.error('❌ Error creating order:', error.message);
-    if (error.response) {
-      console.error('📥 Response data:', error.response.data);
-      console.error('📟 Status code:', error.response.status);
-      console.error('🔑 Headers:', error.response.headers);
-    }
-    
-    if (error.response?.status === 429) {
-      console.log('⚠️ Rate limit hit, waiting before retry...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return createReceivedOrder(token, order, customerId);
-    }
-    
-    // Check if order was created despite the error
-    const existingOrder = await findExistingOrder(token, order.order_number);
-    if (existingOrder) {
-      console.log(`✅ Order #${order.order_number} was created despite error, returning existing order`);
-      return existingOrder;
-    }
-    
-    throw error;
+    return await creationPromise;
   } finally {
-    // Clean up cache
-    requestCache.delete(cacheKey);
+    // Clean up the lock
+    orderCreationLocks.delete(lockKey);
   }
 }
