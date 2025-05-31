@@ -153,7 +153,35 @@ export async function getItemByCode(code) {
   }
 }
 
+async function findExistingOrder(token, orderNumber) {
+  const url = `${MINIMAX_API}/orders`;
+  try {
+    const res = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: {
+        PageSize: 100,
+        Reference: `#${orderNumber}`
+      }
+    });
+    
+    const orders = res.data.Rows || res.data.Items || res.data;
+    if (!Array.isArray(orders)) return null;
+    
+    return orders.find(order => order.Reference === `#${orderNumber}`);
+  } catch (err) {
+    console.warn(`⚠️ Error checking for existing order:`, err.message);
+    return null;
+  }
+}
+
 export async function createReceivedOrder(token, order, customerId) {
+  // Check if order already exists
+  const existingOrder = await findExistingOrder(token, order.order_number);
+  if (existingOrder) {
+    console.log(`✅ Order #${order.order_number} already exists in Minimax with ID: ${existingOrder.ID}`);
+    return existingOrder;
+  }
+
   const billing = order.billing_address;
   const orderRows = [];
 
@@ -193,7 +221,8 @@ export async function createReceivedOrder(token, order, customerId) {
     DescriptionBelow: "Potvrđujemo Vašu porudžbinu koja je prikazana u ovom dokumentu.",
     Status: "P",
     OrderRows: orderRows,
-    IsPriceWithVAT: true
+    IsPriceWithVAT: true,
+    IdempotencyKey: `shopify-${order.order_number}-${Date.now()}`
   };
 
   const cacheKey = `order-${order.order_number}`;
@@ -206,12 +235,15 @@ export async function createReceivedOrder(token, order, customerId) {
 
   try {
     console.log('📦 [createReceivedOrder] Creating order in Minimax...');
+    console.log('📤 Request data:', JSON.stringify(data, null, 2));
     
-    const requestPromise = axios.post(`${MINIMAX_API}/receivedorders`, data, {
+    // Используем правильный эндпоинт для создания заказа2
+    const requestPromise = axios.post(`${MINIMAX_API}/orders`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Idempotency-Key': data.IdempotencyKey
       }
     });
 
@@ -219,14 +251,37 @@ export async function createReceivedOrder(token, order, customerId) {
     requestCache.set(cacheKey, requestPromise);
 
     const response = await requestPromise;
-    console.log('[minimax] ✅ Order created in Minimax');
-    return response.data;
+    console.log('📥 Response from Minimax:', JSON.stringify(response.data, null, 2));
+    
+    // Double check if order was actually created
+    const createdOrder = await findExistingOrder(token, order.order_number);
+    if (!createdOrder) {
+      throw new Error('Order creation failed - order not found after creation');
+    }
+    
+    console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
+    return createdOrder;
   } catch (error) {
+    console.error('❌ Error creating order:', error.message);
+    if (error.response) {
+      console.error('📥 Response data:', error.response.data);
+      console.error('📟 Status code:', error.response.status);
+      console.error('🔑 Headers:', error.response.headers);
+    }
+    
     if (error.response?.status === 429) {
       console.log('⚠️ Rate limit hit, waiting before retry...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       return createReceivedOrder(token, order, customerId);
     }
+    
+    // Check if order was created despite the error
+    const existingOrder = await findExistingOrder(token, order.order_number);
+    if (existingOrder) {
+      console.log(`✅ Order #${order.order_number} was created despite error, returning existing order`);
+      return existingOrder;
+    }
+    
     throw error;
   } finally {
     // Clean up cache
