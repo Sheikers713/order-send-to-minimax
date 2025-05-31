@@ -153,7 +153,7 @@ export async function getItemByCode(code) {
   }
 }
 
-async function findExistingOrder(token, orderNumber) {
+export async function findExistingOrder(token, orderNumber) {
   const url = `${MINIMAX_API}/orders`;
   try {
     const res = await axios.get(url, {
@@ -237,7 +237,6 @@ export async function createReceivedOrder(token, order, customerId) {
     console.log('📦 [createReceivedOrder] Creating order in Minimax...');
     console.log('📤 Request data:', JSON.stringify(data, null, 2));
     
-    // Используем правильный эндпоинт для создания заказа2
     const requestPromise = axios.post(`${MINIMAX_API}/orders`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -253,14 +252,25 @@ export async function createReceivedOrder(token, order, customerId) {
     const response = await requestPromise;
     console.log('📥 Response from Minimax:', JSON.stringify(response.data, null, 2));
     
-    // Double check if order was actually created
-    const createdOrder = await findExistingOrder(token, order.order_number);
-    if (!createdOrder) {
-      throw new Error('Order creation failed - order not found after creation');
+    // Если API вернул пустой массив, но статус 200, считаем что заказ создан успешно
+    if (Array.isArray(response.data) && response.data.length === 0) {
+      console.log('📝 Empty array response, checking if order was created...');
+      // Даем API время на обработку
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const createdOrder = await findExistingOrder(token, order.order_number);
+      if (createdOrder) {
+        console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
+        return createdOrder;
+      }
     }
     
-    console.log('[minimax] ✅ Order created in Minimax with ID:', createdOrder.ID);
-    return createdOrder;
+    // Если получили ID заказа напрямую
+    if (response.data?.ID) {
+      console.log('[minimax] ✅ Order created in Minimax with ID:', response.data.ID);
+      return response.data;
+    }
+    
+    throw new Error('Order creation failed - invalid response format');
   } catch (error) {
     console.error('❌ Error creating order:', error.message);
     if (error.response) {
